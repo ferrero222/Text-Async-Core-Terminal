@@ -1,4 +1,4 @@
-# T.A.C.T. (Text Async Core Terminal) documentation
+# TACT (Text Async Core Terminal) documentation
 
 The framework offers a constructor and methods for easily creating any single or grouped commands, creating and embedding automatic parsers, and building logical execution chains of grouped commands to implement various interaction scenarios with any external device, using any interfaces without being tied to hardware implementation.
 
@@ -45,7 +45,7 @@ tact_context_t ctx = {0};
 Initialize this context:
 
 ```c
-if (!tact_init_ex(&ctx, your_printf_function, your_write_function, &rx)) {
+if (!tact_init(&ctx, your_printf_function, your_write_function, &rx)) {
   /* Invalid callbacks, ring-buffer state, or context state. */
 }
 ```
@@ -116,8 +116,8 @@ tact_item_t items[] = //[REQ][PREFIX][PARCE_TYPE][RPT][WAIT][STEPERROR][STEPOK][
   TACT_ITEM("AT+CIFSR"TACT_CMD_CRLF,           TACT_CMD_FORCE, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL, NULL, TACT_NO_ARG),
   TACT_ITEM("AT+CIPHEAD?"TACT_CMD_CRLF,        "+CIPHEAD: 1", TACT_PARCE_SIMCOM,  1, 100, 1, 2, NULL, NULL, TACT_NO_ARG),
   TACT_ITEM("AT+CIPHEAD=1"TACT_CMD_CRLF,                NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL, NULL, TACT_NO_ARG),
-  TACT_ITEM("AT+CIPSRIP?"TACT_CMD_CRLF,        "+CIPSRIP: 1", TACT_PARCE_SIMCOM,  1, 100, 1, 2, NULL, NULL, TACT_NO_ARG),
-  TACT_ITEM("AT+CIPSRIP=1"TACT_CMD_CRLF,                NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL, NULL, TACT_NO_ARG),
+  TACT_ITEM("AT+CIPSRIP?"TACT_CMD_CRLF,        "+CIPSRIP: 0", TACT_PARCE_SIMCOM,  1, 100, 1, 2, NULL, NULL, TACT_NO_ARG),
+  TACT_ITEM("AT+CIPSRIP=0"TACT_CMD_CRLF,                NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL, NULL, TACT_NO_ARG),
   TACT_ITEM("AT+CIPSHOWTP?"TACT_CMD_CRLF,    "+CIPSHOWTP: 1", TACT_PARCE_SIMCOM,  1, 100, 1, 0, NULL, NULL, TACT_NO_ARG),
   TACT_ITEM("AT+CIPSHOWTP=1"TACT_CMD_CRLF,              NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 0, NULL, NULL, TACT_NO_ARG),
 };
@@ -126,20 +126,22 @@ if(!tact_entity_enqueue(ctx, items, sizeof(items)/sizeof(items[0]), cb, 0, meta)
 
 ### Example 2, grouped AT commands for SIMCOM with response formatting
 
+Include `tact_mdl_lte.h` when using the SIMCom LTE runtime-data structure shown below.
+
 ```c
 tact_item_t items[] = //[REQ][PREFIX][PARCE_TYPE][RPT][WAIT][STEPERROR][STEPOK][CB][FORMAT][...##VA_ARGS]
 {
-  TACT_ITEM("AT+GSN"TACT_CMD_CRLF,       NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,               "%15[^\x0d]", TACT_ARG(tact_mdl_rtd_t, modem_imei)),
-  TACT_ITEM("AT+GMM"TACT_CMD_CRLF,       NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,               "%15[^\x0d]", TACT_ARG(tact_mdl_rtd_t, modem_id)),
-  TACT_ITEM("AT+GMR"TACT_CMD_CRLF,       NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,      "Revision:%29[^\x0d]", TACT_ARG(tact_mdl_rtd_t, modem_rev)),
-  TACT_ITEM("AT+CCLK?"TACT_CMD_CRLF,  "+CCLK", TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,      "+CCLK: \"%21[^\"]\"", TACT_ARG(tact_mdl_rtd_t, modem_clock)),
-  TACT_ITEM("AT+CCID"TACT_CMD_CRLF,      NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,               "%21[^\x0d]", TACT_ARG(tact_mdl_rtd_t, sim_iccid)),
-  TACT_ITEM("AT+COPS?"TACT_CMD_CRLF,  "+COPS", TACT_PARCE_SIMCOM, 20, 100, 0, 1, NULL, "+COPS: 0, 0,\"%49[^\"]\"", TACT_ARG(tact_mdl_rtd_t, sim_operator)),
-  TACT_ITEM("AT+CSQ"TACT_CMD_CRLF,     "+CSQ", TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,                 "+CSQ: %d", TACT_ARG(tact_mdl_rtd_t, sim_rssi)),
+  TACT_ITEM("AT+GSN"TACT_CMD_CRLF,       NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,               "%15[^\x0d]", TACT_ARG(tact_mdl_lte_rtd_t, modem_imei)),
+  TACT_ITEM("AT+GMM"TACT_CMD_CRLF,       NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,               "%15[^\x0d]", TACT_ARG(tact_mdl_lte_rtd_t, modem_id)),
+  TACT_ITEM("AT+GMR"TACT_CMD_CRLF,       NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,      "Revision:%29[^\x0d]", TACT_ARG(tact_mdl_lte_rtd_t, modem_rev)),
+  TACT_ITEM("AT+CCLK?"TACT_CMD_CRLF,  "+CCLK", TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,      "+CCLK: \"%21[^\"]\"", TACT_ARG(tact_mdl_lte_rtd_t, modem_clock)),
+  TACT_ITEM("AT+CCID"TACT_CMD_CRLF,      NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,               "%21[^\x0d]", TACT_ARG(tact_mdl_lte_rtd_t, sim_iccid)),
+  TACT_ITEM("AT+COPS?"TACT_CMD_CRLF,  "+COPS", TACT_PARCE_SIMCOM, 20, 100, 0, 1, NULL, "+COPS: 0, 0,\"%49[^\"]\"", TACT_ARG(tact_mdl_lte_rtd_t, sim_operator)),
+  TACT_ITEM("AT+CSQ"TACT_CMD_CRLF,     "+CSQ", TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,                 "+CSQ: %d", TACT_ARG(tact_mdl_lte_rtd_t, sim_rssi)),
   TACT_ITEM("AT+CENG=3"TACT_CMD_CRLF,    NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 1, NULL,                       NULL, TACT_NO_ARG),
-  TACT_ITEM("AT+CENG?"TACT_CMD_CRLF,     NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 0, tact_mdl_general_ceng_cb,    NULL, TACT_NO_ARG),
+  TACT_ITEM("AT+CENG?"TACT_CMD_CRLF,     NULL, TACT_PARCE_SIMCOM, 10, 100, 0, 0, NULL,    NULL, TACT_NO_ARG),
 };
-if(!tact_entity_enqueue(ctx, items, sizeof(items)/sizeof(items[0]), cb, sizeof(tact_mdl_rtd_t), meta)) return false;
+if(!tact_entity_enqueue(ctx, items, sizeof(items)/sizeof(items[0]), cb, sizeof(tact_mdl_lte_rtd_t), meta)) return false;
 ```
 
 ### Command Parameters
@@ -202,7 +204,7 @@ void (*tact_entity_cb_t)(bool result, void* meta, void* data);
 *   Also, in the [PREFIX] field, you can specify the macro-literal `TACT_CMD_FORCE`, which indicates that this command or data should simply be sent without parsing or waiting for a response. Other fields except [STEPOK] will not be used at all, and their content can be anything.
 *   The `modules` folder contains some files and implementations of ready-made AT command groups.
 *   The `tests` folder contains a portable makefile. Run `make -C tests check`; use `ARCH_FLAGS=-m32` only when the toolchain has 32-bit support. Host tests use an 8 KiB pool to account for 64-bit pointer overhead; production builds keep the configurable default and must size it for their actual queue workload. `BIN_DIR` can redirect all build outputs outside the source tree.
-*   The command callback receives a data slice. This is done so you can write your own data parser if the standard formatting is insufficient. An example of this can be seen in the ready-made function `tact_mdl_rtd`, where the data structure is dynamically created by the library, and in the command callback, we manually parse its data in the desired way and place them into this structure.
+*   The command callback receives a data slice. This is done so you can write your own data parser if the standard formatting is insufficient. An example of this can be seen in the ready-made function `tact_mdl_lte_rtd`, where the data structure is dynamically created by the library, and in the command callback, we manually parse its data in the desired way and place them into this structure.
 *   In case of processed data, the library itself moves the tail and counter of your ring buffer.
 *   The `examples` folder contains usage examples.
 
@@ -218,7 +220,7 @@ Parser for commands in SIMCOM format. This parser works with echo enabled. Usual
 | [PREFIX] [FORMAT] [ARG] | [DATA] + prefix and format check |
 
 The [DATA] field is usually framed by CRLF characters — the parser finds boundaries by them, removes them, and works with "clean" data. If [DATA] contains multi-line data with CRLF, the parser will return only the FIRST line.
-For complex cases, it is recommended to write a custom parser via a callback (example: function `tact_mdl_rtd`). Use the table above to correctly create a command, knowing in advance the type of response and what fields it contains.
+For complex cases, it is recommended to write a custom parser via a callback (example: function `tact_mdl_lte_rtd`). Use the table above to correctly create a command, knowing in advance the type of response and what fields it contains.
 
 `TACT_PARCE_RAW`<br>
 Parser for data transmission format commands. Parses raw data simply checking for a match with the [PREFIX] field if specified. Also, if the [FORMAT][ARG] field is specified, the parser will attempt to format and retrieve useful data from the very beginning of this data buffer. The data is not preprocessed but handled as-is, which must be taken into account. The [REQ] field can be omitted.
@@ -228,7 +230,6 @@ Parser for data transmission format commands. Parses raw data simply checking fo
 Based on command groups (described above), you can create your own algorithms and execution chains. An API is provided in the file `tact_chain.h`:
 
 *   `tact_chain_destroy`
-*   `tact_chain_destroy_ex`
 *   `tact_chain_start`
 *   `tact_chain_stop`
 *   `tact_chain_reset`
@@ -286,25 +287,43 @@ Let's create an example chain based on the modules provided in the library:
 ```c
 chain_step_t tcp_steps[] =
 {
+  /* Caller owns TX/RX descriptors and pauses AT/URC processing in raw loops.
+   * See examples/gprs.c for message preparation and reply validation. */
   //Main
-  TACT_CHAIN("INIT_MODEM", "NEXT", "MODEM_RESTART", tact_mdl_modem_init, NULL, NULL, NULL, 1),
+  TACT_CHAIN("INIT_MODEM", "NEXT", "MODEM RESTART", tact_mdl_modem_init, NULL, NULL, NULL, 1),
   TACT_CHAIN("GPRS INIT", "NEXT", "GPRS DEINIT", tact_mdl_gprs_init, NULL, NULL, NULL, 1),
   TACT_CHAIN("SOCKET CONFIG", "NEXT", "GPRS INIT", tact_mdl_gprs_socket_config, NULL, NULL, NULL, 1),
   TACT_CHAIN("CONNECT TO SERVER", "NEXT", "SOCKET CONFIG", tact_mdl_gprs_socket_connect, NULL, &tact_server_connect, NULL, 1),
-  TACT_CHAIN("GET RTD", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_rtd, tact_rtd_cb, NULL, NULL, 1),
-  TACT_CHAIN_EXEC("CHECK RTD", "NEXT", "GET RTD", tact_rtd_check),
+  TACT_CHAIN("GET RTD", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_lte_rtd, tact_rtd_cb, NULL, NULL, 1),
+  TACT_CHAIN_EXEC("CHECK RTD", "NEXT", "GET RTD", tact_rtd_check, NULL),
 
-  TACT_CHAIN_EXEC("CREATE WIALON LOGIN", "NEXT", "DISCONNECT FROM SERVER", tact_server_data_wialon_login),
-  TACT_CHAIN("SEND WIALON LOGIN", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_gprs_socket_send_recieve, NULL, &tact_server_data, NULL, 3),
+  TACT_CHAIN_EXEC("CREATE WIALON LOGIN", "NEXT", "DISCONNECT FROM SERVER", tact_server_data_wialon_login, NULL),
+  TACT_CHAIN("SEND WIALON LOGIN", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_gprs_socket_send_recieve, NULL, &tact_server_tx, NULL, 1),
+  TACT_CHAIN_LOOP_START(0),
+    TACT_CHAIN_EXEC("LOGIN TX", "LOGIN SEND RESULT", "NEXT", tact_mdl_gprs_stream_tx, &tact_server_tx),
+  TACT_CHAIN_LOOP_END,
+  TACT_CHAIN("LOGIN SEND RESULT", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_gprs_socket_send_end, NULL, NULL, NULL, 1),
+  TACT_CHAIN_LOOP_START(0),
+    TACT_CHAIN_EXEC("LOGIN RX", "LOGIN CHECK REPLY", "NEXT", tact_mdl_gprs_stream_rx, &tact_server_rx),
+  TACT_CHAIN_LOOP_END,
+  TACT_CHAIN_EXEC("LOGIN CHECK REPLY", "NEXT", "DISCONNECT FROM SERVER", tact_server_answer_check, NULL),
 
   TACT_CHAIN_LOOP_START(10),
-    TACT_CHAIN("GET RTD", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_rtd, tact_rtd_cb, NULL, NULL, 1),
-    TACT_CHAIN_EXEC("CREATE WIALON DATA", "NEXT", "DISCONNECT FROM SERVER", tact_server_data_wialon_packet),
-    TACT_CHAIN("SEND WIALON DATA", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_gprs_socket_send_recieve, NULL, &tact_server_data, NULL, 3),
+    TACT_CHAIN("GET RTD LOOP", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_lte_rtd, tact_rtd_cb, NULL, NULL, 1),
+    TACT_CHAIN_EXEC("CREATE WIALON DATA", "NEXT", "DISCONNECT FROM SERVER", tact_server_data_wialon_packet, NULL),
+    TACT_CHAIN("SEND WIALON DATA", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_gprs_socket_send_recieve, NULL, &tact_server_tx, NULL, 1),
+    TACT_CHAIN_LOOP_START(0),
+      TACT_CHAIN_EXEC("DATA TX", "DATA SEND RESULT", "NEXT", tact_mdl_gprs_stream_tx, &tact_server_tx),
+    TACT_CHAIN_LOOP_END,
+    TACT_CHAIN("DATA SEND RESULT", "NEXT", "DISCONNECT FROM SERVER", tact_mdl_gprs_socket_send_end, NULL, NULL, NULL, 1),
+    TACT_CHAIN_LOOP_START(0),
+      TACT_CHAIN_EXEC("DATA RX", "DATA CHECK REPLY", "NEXT", tact_mdl_gprs_stream_rx, &tact_server_rx),
+    TACT_CHAIN_LOOP_END,
+    TACT_CHAIN_EXEC("DATA CHECK REPLY", "NEXT", "DISCONNECT FROM SERVER", tact_server_answer_check, NULL),
     TACT_CHAIN_DELAY(1000),
   TACT_CHAIN_LOOP_END,
 
-  TACT_CHAIN_EXEC("WIALON DATA CLEAN", "STOP", "HARD RESET", tact_server_data_clean),
+  TACT_CHAIN_EXEC("WIALON DATA CLEAN", "STOP", "HARD RESET", tact_server_data_clean, NULL),
 
   //Error
   TACT_CHAIN("GPRS DEINIT", "GPRS INIT", "MODEM RESTART", tact_mdl_gprs_deinit, NULL, NULL, NULL, 1),
@@ -312,7 +331,7 @@ chain_step_t tcp_steps[] =
   TACT_CHAIN("MODEM RESTART", "GPRS INIT", "MODEM RESTART", tact_mdl_modem_reset, NULL, NULL, NULL, 1),
 
   //Critical
-  TACT_CHAIN_EXEC("HARD RESET", "STOP", "STOP", tact_hard_reset),
+  TACT_CHAIN_EXEC("HARD RESET", "STOP", "STOP", tact_hard_reset, NULL),
 };
 
 tact_chain_t* chain = tact_chain_create("TCP", tcp_steps, sizeof(tcp_steps)/sizeof(chain_step_t), ctx);
@@ -324,12 +343,163 @@ while(tact_chain_is_running(chain))
   if(tact_chain_is_running(chain) && !res) break;
 }
 /* Destroy only after any outstanding asynchronous step callback has returned. */
-if(!tact_chain_destroy_ex(chain)) {
+if(!tact_chain_destroy(chain)) {
   /* Defer cleanup until no run/callback is active. */
 }
 ```
 
 This chain one-time configures the SIMCOM modem, context, and connection, gets real-time data, checks it, and then 10 times starts collecting and sending this data to the server with a period of 10 seconds, after preliminary authorization. In case of an error, disconnection or deinitialization occurs with an attempt to reinitialize and reconnect or a complete restart.
+
+### Raw stream EXEC parameters
+
+EXEC actions receive the Chain context and a caller-owned mutable parameter:
+
+```c
+bool action(tact_context_t *ctx, void *param);
+```
+
+FTP provides two raw byte operations, `tact_mdl_ftp_stream_tx` and
+`tact_mdl_ftp_stream_rx`. Both use the same descriptor, owned by the caller:
+
+```c
+uint8_t payload[512] = {0}; /* Fill before starting the upload. */
+tact_mdl_ftp_stream_t tx =
+{
+  .buffer = payload,
+  .size = sizeof(payload),
+  .count = 0,
+  .direction = TACT_MDL_FTP_STREAM_TX
+};
+tact_mdl_ftp_upload_t upload =
+{
+  .remote_path = "can1.bin",
+  .size = sizeof(payload),
+  .offset = 0
+};
+
+/* Prerequisites: FTP service/login/binary type are ready, and this Chain
+ * exclusively owns the UART. The surrounding worker must not process AT/URCs
+ * during the raw loop; resume AT processing for FTP END afterwards. */
+chain_step_t put_steps[] =
+{
+  TACT_CHAIN("FTP BEGIN", "NEXT", "STOP", tact_mdl_ftp_put_begin,
+             NULL, &upload, NULL, 1),
+  TACT_CHAIN_LOOP_START(0),
+    TACT_CHAIN_EXEC("FTP TX", "FTP END", "NEXT", tact_mdl_ftp_stream_tx, &tx),
+    /* Caller EXEC steps may inspect progress or handle other work here. */
+  TACT_CHAIN_LOOP_END,
+  TACT_CHAIN("FTP END", "STOP", "STOP", tact_mdl_ftp_put_end,
+             NULL, NULL, NULL, 1),
+};
+```
+
+Each call transfers at most `TACT_MDL_FTP_STREAM_BLOCK` bytes and returns true
+when `count == size`. False means pending progress or invalid input. Deadlines
+and recovery belong to the Chain: add a caller-defined timeout branch if the
+peer may stop making progress. Do not busy-wait an infinite loop without yielding.
+Use the surrounding task's scheduler and monotonic clock for raw-phase yields
+and deadlines. Do not use TACT_CHAIN_DELAY while tact_core_proc is paused:
+its tick counter advances only when the core is serviced.
+
+PUT specifies the data length (1..2048 bytes) explicitly; `tx.size` must match
+`upload.size`. Payload bytes are sent unchanged, including NUL, ETX, and Ctrl+Z.
+Do not append a terminator. For the next file block, prepare its buffer, reset
+`count`, and update `upload.size` and the remote REST `upload.offset`. The server
+result is obtained by FTP END; a completed TX counter alone does not prove upload
+success.
+
+For receive, set direction to `TACT_MDL_FTP_STREAM_RX`, set `size` to the expected
+payload length, reset `count`, and use `tact_mdl_ftp_stream_rx` in the same loop
+pattern. Consume the text payload header first. RX reads only the expected bytes
+from the existing UART ring and leaves trailing protocol bytes untouched. FTP
+download headers and chunk boundaries are handled by the caller, not by this
+byte-copy operation.
+
+The raw operations create no tasks, suspend no workers, allocate no buffers,
+and store no global transfer state. The current GSM worker is not automatically
+paused by them. The surrounding integration must exclude `tact_core_proc` and
+other RX consumers during raw receive, and prevent AT commands during raw TX.
+Configure the TACT port critical-section hooks to protect the ring from its UART
+ISR producer; the default hooks are no-ops. The transport write callback must
+return the exact accepted byte count, with zero meaning no bytes sent. Returning
+zero after a partial physical transmission does not satisfy this contract and
+must not be treated as a safe retry.
+
+### GPRS binary stream
+
+The legacy SIM800/SIM868 GPRS module uses the same caller-owned stream layout as
+FTP, plus `remaining`: bytes left in the current `+IPD` payload. There is no
+extra ring, heap-allocated packet, callback, or hidden transfer state in the new
+EXEC operations. The older `tact_mdl_gprs_server` chunk-handler API remains for
+compatibility; do not use it as a second consumer of the same RX ring.
+
+`tact_mdl_gprs_socket_send_recieve` now takes `tact_mdl_gprs_stream_t`, not the
+old text/answer descriptor. It disables echo, queues `AT+CIPSEND=size`, and
+completes at `>`. Echo stays disabled; reconfigure it separately if needed.
+Send exactly `size` bytes using `tact_mdl_gprs_stream_tx`; no Ctrl+Z or CR/LF is
+appended. `tact_mdl_gprs_socket_send_end` separately waits for `SEND OK`.
+A completed TX counter means UART transfer, not modem/server acknowledgement.
+One send is limited to `TACT_MDL_GPRS_SEND_MAX` and must fit the modem's current
+`AT+CIPSEND?` allowance.
+
+```c
+uint8_t request[] = {'P', 0, 0x1A, 'G'};
+uint8_t reply[8] = {0};
+tact_mdl_gprs_stream_t tx =
+{
+  .buffer = request,
+  .size = sizeof(request),
+  .direction = TACT_MDL_GPRS_STREAM_TX
+};
+tact_mdl_gprs_stream_t rx =
+{
+  .buffer = reply,
+  .size = sizeof(reply),
+  .direction = TACT_MDL_GPRS_STREAM_RX,
+  .remaining = 0
+};
+
+chain_step_t socket_steps[] =
+{
+  TACT_CHAIN("GPRS PROMPT", "NEXT", "STOP", tact_mdl_gprs_socket_send_recieve,
+             NULL, &tx, NULL, 1),
+  TACT_CHAIN_LOOP_START(0),
+    TACT_CHAIN_EXEC("GPRS TX", "GPRS SEND RESULT", "NEXT", tact_mdl_gprs_stream_tx, &tx),
+  TACT_CHAIN_LOOP_END,
+  TACT_CHAIN("GPRS SEND RESULT", "NEXT", "STOP", tact_mdl_gprs_socket_send_end,
+             NULL, NULL, NULL, 1),
+  TACT_CHAIN_LOOP_START(0),
+    TACT_CHAIN_EXEC("GPRS RX", "STOP", "NEXT", tact_mdl_gprs_stream_rx, &rx),
+  TACT_CHAIN_LOOP_END,
+};
+```
+
+Run after socket configuration/connection. Raw loops require the same UART
+ownership, critical hooks, scheduler yields, and monotonic deadlines described
+for FTP. The sample assumes a request/reply peer that does not deliver unrelated
+binary traffic while the text worker waits for SEND OK. An asynchronous socket
+requires caller-controlled text/binary RX routing: do not run the generic AT/URC
+parser through an unsolicited binary packet, including while awaiting SEND OK.
+
+RX expects `+IPD,<length>,TCP:<payload>` (or `UDP`) with CIPMUX=0, CIPHEAD=1,
+CIPSHOWTP=1 and automatic reception (CIPRXGET=0). Socket configuration sets these
+options, disables the remote-address prompt (CIPSRIP=0), and enables the send
+prompt/result (CIPSPRT=1). The format follows the
+[SIMCom AT command manual](https://simcom.ee/documents/SIM868/SIM800%20Series_AT%20Command%20Manual_V1.10.pdf),
+sections 8.2.3, 8.2.17, 8.2.20, 8.2.24 and 8.2.26. This is not the future A76xx TCP module.
+
+Set RX `size` to the expected **payload** length, excluding +IPD headers. It
+may arrive in several UART fragments or several +IPD blocks. Only payload bytes
+increment `count`; NUL, CR/LF, and +IPD inside a payload remain literal bytes.
+Completion is `count == size`, not a newline or TCP packet boundary. If the
+application reply length is unknown, read bounded chunks and let the application
+protocol determine its complete-message length.
+
+After one RX buffer fills, replace `buffer`/`size` and reset `count`, preserving
+`remaining` so the next call continues an unfinished +IPD block. Reset the whole
+RX context only for a new connection or after explicitly discarding its old ring
+data. Text between payload blocks is skipped, not reported as URCs; the caller
+must separately route status/errors if they are required.
 
 ### Chain Parameters
 
@@ -349,7 +519,8 @@ So, let's look at what can be used in a chain and what parameters can be passed 
 *   **[Name]** - Step name.
 *   **[True target]** - Name of the step to go to in case of success. You can specify NULL or "NEXT" for step +1, or "PREV" for step -1, or a specific step name. "STOP" will end chain execution.
 *   **[False target]** - The same as for success, but in case of error.
-*   **[Exec func]** - Function to execute. Must be of type `bool (*exec)(void);` Its execution result affects the next transition.
+*   **[Exec func]** - Function to execute. Must be of type `bool (*exec)(tact_context_t *ctx, void *param);` The Chain passes its own TACT context automatically; the result selects the next transition.
+*   **[Param]** - Borrowed mutable parameter pointer passed unchanged to the EXEC function; use NULL when unused. The referenced object must outlive all executions.
 
 **TACT_CHAIN_LOOP_START** - Macro to indicate the start of a following loop, contains:
 *   **[Iterations]** - Number of loop iterations. 0 - Infinite.

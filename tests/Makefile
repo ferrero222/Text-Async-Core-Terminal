@@ -42,29 +42,24 @@ ET_DIR  := ../libs/embedded-test/et
 
 # list of all source directories used by this project
 VPATH := . \
-	../libs/o1heap/o1heap \
+	../libs/o1heap \
 	../chain \
 	../port \
 	../core \
-	../modules/simcom/general \
+	../modules \
 	../modules/simcom/sms \
-	../modules/simcom/gprs \
-	../modules/simcom/mqtt \
-	../libs/ringslice/src \
+	../libs/ringslices \
 	$(ET_DIR)
 
 # list of all include directories needed by this project
 INCLUDES := -I. \
-	-I../libs/o1heap/o1heap \
+	-I../libs/o1heap \
 	-I../chain \
 	-I../core \
 	-I../port \
-	-I../modules/simcom/general \
+	-I../modules \
 	-I../modules/simcom/sms \
-	-I../modules/simcom/gprs \
-	-I../modules/simcom/mqtt \
-	-I../libs/ringslice/src \
-	-I../libs/ringslice/src/config \
+	-I../libs/ringslices \
 	-I$(ET_DIR)
 
 #-----------------------------------------------------------------------------

@@ -95,7 +95,7 @@ tact_chain_t* test_chain_init(void)
   tact_chain_t* chain = tact_chain_create("MQTT", mqtt_steps, sizeof(mqtt_steps)/sizeof(chain_step_t), &simcom_ctx);
   if(!chain || !tact_chain_start(chain))
   {
-    if(chain) (void)tact_chain_destroy_ex(chain);
+    if(chain) (void)tact_chain_destroy(chain);
     return NULL;
   }
   return chain;
@@ -137,7 +137,7 @@ int main(void)
     }
     else break;
   }
-  (void)tact_chain_destroy_ex(chain);
+  (void)tact_chain_destroy(chain);
   tact_deinit(&simcom_ctx);
   return 0;
 }

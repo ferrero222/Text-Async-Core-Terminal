@@ -1,10 +1,10 @@
-/******************************************************************************
- *                              _    ____   ____                              *
- *                   ======    / \  / ___| / ___| ======       (c)03.10.2025  *
- *                   ======   / _ \ \___ \| |     ======           v1.0.0     *
- *                   ======  / ___ \ ___) | |___  ======                      *
- *                   ====== /_/   \_\____/ \____| ======                      *  
- *                                                                            *
+/*******************************************************************************
+ *              _____      _       ____   _____                                *
+ *      ====== |_   _|    / \     / ___| |_   _| ======    (c)03.10.2025       *
+ *      ======   | |     / _ \   | |       | |   ======        v1.0.0          *
+ *      ======   | |    / ___ \  | |___    | |   ======                        *
+ *      ======   |_|   /_/   \_\  \____|   |_|   ======                        *
+ *                                                                             *
  ******************************************************************************/
 /*******************************************************************************
  * Include files
@@ -19,8 +19,9 @@
  * Local pre-processor symbols/macros ('#define')
  ******************************************************************************/
 DBC_MODULE_NAME("TACT_CORE")
-#define TACT_OWN_REQ    0x01u
-#define TACT_OWN_PREFIX 0x02u
+
+#define TACT_OWN_REQ      0x01u
+#define TACT_OWN_PREFIX   0x02u
 
 /*******************************************************************************
  * Global variable definitions (declared in header file with 'extern')
@@ -53,7 +54,6 @@ static void tact_proc_finish(tact_context_t* const ctx);
 static void tact_entity_release(tact_context_t* const ctx, tact_entity_t* const entity)
 {
   if(!ctx || !entity || !ctx->init_struct.heap) return;
-
   if(entity->item)
   {
     for(uint8_t i = 0; i < entity->item_cnt; ++i)
@@ -154,17 +154,13 @@ static bool tact_string_boolean_find(const ringslice_t* const rs_data, const cha
 {
   DBC_REQUIRE(150, rs_data); 
   DBC_REQUIRE(151, pattern);
-
   const char* or_sep = strchr(pattern, '|'); //Find type of boolean operation
   const char* and_sep = strchr(pattern, '&');
-  
   if(or_sep && and_sep) return false; // Combination in not allowed
-  
   const char sep = or_sep ? '|' : (and_sep ? '&' : '\0');
   const int require_all = (sep == '&'); // 1 for AND, 0 for OR
   bool found = false;
   uint32_t furthest_end = 0;
-
   for(const char* start = pattern; *start && *start != '\0';) 
   {
     const char* end = strchr(start, sep);
@@ -210,7 +206,6 @@ static bool tact_cmd_sscanf(const ringslice_t* const rs_data, const tact_item_t*
   size_t param_count = 0;
   while(param_count < 6 && output_ptrs[param_count] != TACT_NO_ARG) ++param_count;
   if(param_count == 0 || output_ptrs[param_count] != TACT_NO_ARG) return false;
-
   switch (param_count)
   {
     case 1:  return ringslice_scanf(rs_data, format, output_ptrs[0]) == 1;
@@ -237,13 +232,10 @@ static bool tact_raw_parcer(tact_context_t* const ctx, const ringslice_t rs_me, 
   DBC_REQUIRE(117, ctx);
   DBC_REQUIRE(118, item);
   DBC_REQUIRE(119, entity);
-  
   bool res = true;
-
   ringslice_cnt_t proced_data = 0;
   bool consume_data = false;
   ringslice_t rs_data = rs_me;
-  
   if(item->answ.prefix)
   {
     char* prefix = strncmp(item->answ.prefix, TACT_CMD_SAVE, strlen(TACT_CMD_SAVE)) ? item->answ.prefix : item->answ.prefix +strlen(TACT_CMD_SAVE);
@@ -263,7 +255,6 @@ static bool tact_raw_parcer(tact_context_t* const ctx, const ringslice_t rs_me, 
       consume_data = true;
     }
   }
-
   if(consume_data) tact_rx_consume_to(ctx, rs_me.buf, rs_me.buf_size, (uint16_t)proced_data);
   if(item->answ.cb) item->answ.cb(ringslice_initializer(rs_me.buf, rs_me.buf_size, rs_data.first, rs_me.last), res, entity->data);
   return res; 
@@ -276,9 +267,7 @@ static void tact_simcom_parcer_find_rs_req(const ringslice_t* const me, ringslic
 {
   DBC_REQUIRE(125, me); 
   DBC_REQUIRE(127, rs_req); 
-
   if(!req) return;
-
   if(strncmp(req, TACT_CMD_SAVE, strlen(TACT_CMD_SAVE)) == 0) req += strlen(TACT_CMD_SAVE);
   size_t req_len = strlen(req);
   if(!req_len) return;
@@ -297,13 +286,9 @@ static void tact_simcom_parcer_find_rs_res(const ringslice_t* const me, const ri
 {
   DBC_REQUIRE(129, rs_req); 
   DBC_REQUIRE(131, rs_res); 
-
   if(ringslice_is_empty(rs_req)) return;
-
   ringslice_t tmp = ringslice_subslice_after(me, rs_req, 0);
-
   if(ringslice_is_empty(&tmp)) return;
-
   *rs_res = ringslice_strstr(&tmp, TACT_CMD_ERROR);
   if(ringslice_is_empty(rs_res)) *rs_res = ringslice_strstr(&tmp, TACT_CMD_OK);
 }
@@ -317,9 +302,7 @@ static void tact_simcom_parcer_find_rs_data(const ringslice_t* const me, const r
   DBC_REQUIRE(135, rs_req);  
   DBC_REQUIRE(136, rs_res); 
   DBC_REQUIRE(137, rs_data);
-
   const uint8_t crlf_len = strlen(TACT_CMD_CRLF);
-
   if(ringslice_is_empty(rs_req) && ringslice_is_empty(rs_res)) //No request/response, data is the entire buffer \r\nDATA\r\n
   { 
     *rs_data = *me;
@@ -335,7 +318,6 @@ static void tact_simcom_parcer_find_rs_data(const ringslice_t* const me, const r
                ? ringslice_subslice_after(me, rs_res, 0) // REQ\r\r\nOK\r\n\r\nDATA\r\n
                : ringslice_subslice_gap(rs_req, rs_res); // REQ\r\r\nDATA\r\n\r\nOK\r\n
   }
-
   if((ringslice_len(rs_data) <= 2 *crlf_len) || (ringslice_strncmp(rs_data, TACT_CMD_CRLF, 2))) // If data more than 2bytes and first 2 bytes its CRLF
   {
     *rs_data = (ringslice_t){0};
@@ -381,19 +363,14 @@ static bool tact_simcom_parcer_post_proc(tact_context_t* const ctx, const ringsl
   DBC_REQUIRE(143, rs_data);
   DBC_REQUIRE(144, item);
   DBC_REQUIRE(145, entity);
-  
   int res = false;  
-
   bool rs_req_exist  = !ringslice_is_empty(rs_req);
   bool rs_res_exist  = !ringslice_is_empty(rs_res);
   bool rs_data_exist = !ringslice_is_empty(rs_data);
-
   ringslice_cnt_t proced_data = 0;
   bool consume_data = false;
-  
   char* prefix = item->answ.prefix;
   if(prefix && !strncmp(prefix, TACT_CMD_SAVE, strlen(TACT_CMD_SAVE))) prefix += strlen(TACT_CMD_SAVE);
-
   switch((rs_req_exist << 2) | (rs_res_exist << 1) | rs_data_exist) // Bitmask: REQ[bit2] RES[bit1] DATA[bit0]
   {
       case 0x01: //0b001 - NULL NULL DATA (PREFIX)
@@ -453,13 +430,10 @@ static bool tact_simcom_parcer(tact_context_t* const ctx, const ringslice_t rs_m
   DBC_REQUIRE(120, ctx);
   DBC_REQUIRE(121, item);
   DBC_REQUIRE(122, entity);
-
   bool res = false;
-
   ringslice_t rs_req = {0};
   ringslice_t rs_res = {0}; 
   ringslice_t rs_data = {0};
-
   tact_simcom_parcer_find_rs_req(&rs_me, &rs_req, item->req); // Find request and response in buffer
   tact_simcom_parcer_find_rs_res(&rs_me, &rs_req, &rs_res);
   tact_simcom_parcer_find_rs_data(&rs_me, &rs_req, &rs_res, &rs_data); // Extract data section
@@ -482,13 +456,10 @@ static bool tact_cmd_ring_parcer(tact_context_t* const ctx, const tact_entity_t*
   DBC_REQUIRE(101, ctx->init_struct.init);
   DBC_REQUIRE(102, item);
   DBC_REQUIRE(103, entity);
-
   bool res = false;
-  
   if(item->answ.prefix && strncmp(item->answ.prefix, TACT_CMD_FORCE, strlen(TACT_CMD_FORCE)) == 0) res = true;
   if(res) return true;
   if(ringslice_is_empty(&rs_me)) return 0; // no data
-
   if(!res)
   {
     switch(item->parce_type)
@@ -498,7 +469,6 @@ static bool tact_cmd_ring_parcer(tact_context_t* const ctx, const tact_entity_t*
       default: break;
     }
   }
-
   #ifndef TACT_TEST
   if(res > 0) tact_printf_from_ring(ctx, rs_me, "[RX]");
   #endif
@@ -628,14 +598,15 @@ static void tact_process_urcs(tact_context_t* const ctx, const ringslice_t* me)
 }
 
 /*******************************************************************************
- ** @brief  Init tact lib  
- ** @param  ctx        core context
- ** @param  tact_printf pointer to user func of printf
- ** @param  tact_write  pointer to user func of write to uart
- ** @param  rx_buff    struct to ring buffer
- ** @return none
+ ** @brief  Initialize the TACT library context.
+ ** @param  ctx         Core context; must be zero-initialized before first use.
+ ** @param  tact_printf Callback used for formatted diagnostic output.
+ ** @param  tact_write  Callback used to transmit bytes to the device interface.
+ ** @param  rx_buff     Receive ring buffer used by the TACT parser.
+ ** @retval true  Context initialized successfully.
+ ** @retval false Invalid argument, invalid ring-buffer state, or context already initialized.
  ******************************************************************************/
-bool tact_init_ex(tact_context_t* const ctx, const tact_printf_t tact_printf, const tact_write_t tact_write, tact_ring_buffer_t* rx_buff)
+bool tact_init(tact_context_t* const ctx, const tact_printf_t tact_printf, const tact_write_t tact_write, tact_ring_buffer_t* rx_buff)
 {
   if(!ctx || !tact_printf || !tact_write || !rx_buff || !rx_buff->buffer || rx_buff->size < 2u || rx_buff->head >= rx_buff->size || rx_buff->tail >= rx_buff->size || rx_buff->count >= rx_buff->size) return false;
   uint16_t queued = rx_buff->head >= rx_buff->tail ? (uint16_t)(rx_buff->head - rx_buff->tail) : (uint16_t)(rx_buff->size - rx_buff->tail + rx_buff->head);
@@ -661,28 +632,13 @@ bool tact_init_ex(tact_context_t* const ctx, const tact_printf_t tact_printf, co
   return true;
 }
 
-void tact_init(tact_context_t* const ctx, const tact_printf_t tact_printf, const tact_write_t tact_write, tact_ring_buffer_t* rx_buff)
-{
-  (void)tact_init_ex(ctx, tact_printf, tact_write, rx_buff);
-}
-
 /*******************************************************************************
- ** @brief  DeInit tact lib  
- ** @param  ctx core context
- ** @return none
+ ** @brief  Deinitialize the TACT library context and release allocated resources.
+ ** @param  ctx Core context to deinitialize.
+ ** @retval true  Context deinitialized successfully.
+ ** @retval false Invalid context, not initialized, or processing is currently active.
  ******************************************************************************/
-/** 
-* @brief Deinitializes the TACT library and releases all allocated resources
-* @param ctx Pointer to the application context structure
-* @return true - library deinitialized successfully, false - core validation failed
-*         or active processing is running
-*/
-void tact_deinit(tact_context_t* const ctx)
-{
-  (void)tact_deinit_ex(ctx);
-}
-
-bool tact_deinit_ex(tact_context_t* const ctx)
+bool tact_deinit(tact_context_t* const ctx)
 {
   if(!ctx) return false;
   TACT_CRITICAL_ENTER
@@ -823,9 +779,11 @@ bool tact_entity_enqueue(tact_context_t* const ctx, const tact_item_t* const ite
   cur_entity->state = TACT_STATE_WRITE;
   ctx->entity_queue.entity_head = (ctx->entity_queue.entity_head + 1) % TACT_ENTITY_QUEUE_SIZE;
   ++ctx->entity_queue.entity_cnt;
-  TACT_DEBUG(ctx, "[TACT][INFO] Entity enqueued. Queue count: %d. Memory used: %u/%u. User data at %p. ",
-             ctx->entity_queue.entity_cnt, (unsigned)o1heapGetDiagnostics(ctx->init_struct.heap).allocated,
-             (unsigned)o1heapGetDiagnostics(ctx->init_struct.heap).capacity, cur_entity->data);
+  TACT_DEBUG(
+    ctx, "[TACT][INFO] Entity enqueued. Queue count: %d. Memory used: %u/%u. User data at %p. ",
+    ctx->entity_queue.entity_cnt, (unsigned)o1heapGetDiagnostics(ctx->init_struct.heap).allocated,
+    (unsigned)o1heapGetDiagnostics(ctx->init_struct.heap).capacity, cur_entity->data
+  );
   TACT_CRITICAL_EXIT
   return true;
 
@@ -867,7 +825,6 @@ bool tact_urc_enqueue(tact_context_t* const ctx, const tact_urc_queue_t* const u
   size_t prefix_len = 0;
   while(prefix_len <= TACT_URC_PREFIX_MAX_LEN && urc->prefix[prefix_len]) ++prefix_len;
   if(!prefix_len || prefix_len > TACT_URC_PREFIX_MAX_LEN) return false;
-
   TACT_CRITICAL_ENTER
   if(!ctx->init_struct.init || !ctx->init_struct.heap)
   {
@@ -891,7 +848,6 @@ bool tact_urc_enqueue(tact_context_t* const ctx, const tact_urc_queue_t* const u
     TACT_CRITICAL_EXIT
     return false;
   }
-
   char* prefix_copy = tact_malloc(ctx, prefix_len + 1u);
   if(!prefix_copy)
   {
@@ -1054,9 +1010,7 @@ void tact_core_proc(tact_context_t* const ctx)
   bool check_urcs = ctx->time % TACT_URC_FREQ_CHECK == 0;
   ringslice_t rs_me = ringslice_initializer(rx->buffer, rx->size, rx->tail, rx->head);
   TACT_CRITICAL_EXIT
-
   if(check_urcs) tact_process_urcs(ctx, &rs_me); // check URCs outside the critical section
-
   TACT_CRITICAL_ENTER
   if(!ctx->init_struct.init || !ctx->init_struct.rx_buff)
   {
@@ -1280,7 +1234,6 @@ static void tact_proc_finish(tact_context_t* const ctx)
   TACT_CRITICAL_EXIT
 }
 
-
 #ifdef TACT_TEST
 /*******************************************************************************
  ** @brief  TEST implementations
@@ -1349,7 +1302,6 @@ void _tact_process_urcs(tact_context_t* const ctx, const ringslice_t* me)
 {
   tact_process_urcs(ctx, me);
 }
-
 
 tact_entity_queue_t* _tact_get_entity_queue(tact_context_t* const ctx) {
   return &ctx->entity_queue;

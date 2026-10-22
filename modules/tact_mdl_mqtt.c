@@ -1,10 +1,10 @@
-/******************************************************************************
- *                              _    ____   ____                              *
- *                   ======    / \  / ___| / ___| ======       (c)03.10.2025  *
- *                   ======   / _ \ \___ \| |     ======           v1.0.0     *
- *                   ======  / ___ \ ___) | |___  ======                      *
- *                   ====== /_/   \_\____/ \____| ======                      *
- *                                                                            *
+/*******************************************************************************
+ *              _____      _       ____   _____                                *
+ *      ====== |_   _|    / \     / ___| |_   _| ======    (c)03.10.2025       *
+ *      ======   | |     / _ \   | |       | |   ======        v1.0.0          *
+ *      ======   | |    / ___ \  | |___    | |   ======                        *
+ *      ======   |_|   /_/   \_\  \____|   |_|   ======                        *
+ *                                                                             *
  ******************************************************************************/
 /*******************************************************************************
  * Include files
@@ -273,7 +273,6 @@ bool tact_mdl_mqtt_publish(tact_context_t* const ctx, const tact_entity_cb_t cb,
   char* payload_data = (char*)tact_malloc(ctx, payload_data_size);
   if(!topic_data) return false;
   if(!payload_data) {tact_free(ctx, topic_data); return false; }
-
   if(!mqtt_format(topic_cmd, sizeof(topic_cmd), "%sAT+CMQTTTOPIC=%u,%zu%s", TACT_CMD_SAVE, (unsigned)msg->client_index, topic_len, TACT_CMD_CRLF) ||
      !mqtt_format(payload_cmd, sizeof(payload_cmd), "%sAT+CMQTTPAYLOAD=%u,%zu%s", TACT_CMD_SAVE, (unsigned)msg->client_index, payload_len, TACT_CMD_CRLF) ||
      !mqtt_format(pub_cmd, sizeof(pub_cmd), "%sAT+CMQTTPUB=%u,%u,%u,%u%s", TACT_CMD_SAVE, (unsigned)msg->client_index, (unsigned)msg->qos, (unsigned)msg->pub_timeout, (unsigned)msg->retained, TACT_CMD_CRLF)
@@ -286,7 +285,6 @@ bool tact_mdl_mqtt_publish(tact_context_t* const ctx, const tact_entity_cb_t cb,
   memcpy(topic_data + marker_len, msg->topic, topic_len + 1u);
   memcpy(payload_data, TACT_CMD_SAVE, marker_len);
   memcpy(payload_data + marker_len, msg->payload, payload_len + 1u);
-
   tact_item_t items[] = //[REQ][PREFIX][PARCE_TYPE][RPT][WAIT][STEPERROR][STEPOK][CB][FORMAT][...##VA_ARGS]
   {
     TACT_ITEM(topic_cmd,             ">",    TACT_PARCE_RAW, 3, 500,  0, 1, NULL, NULL, TACT_NO_ARG),

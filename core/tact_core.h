@@ -1,10 +1,10 @@
-/******************************************************************************
- *                              _    ____   ____                              *
- *                   ======    / \  / ___| / ___| ======       (c)03.10.2025  *
- *                   ======   / _ \ \___ \| |     ======           v1.0.0     *
- *                   ======  / ___ \ ___) | |___  ======                      *
- *                   ====== /_/   \_\____/ \____| ======                      *  
- *                                                                            *
+/*******************************************************************************
+ *              _____      _       ____   _____                                *
+ *      ====== |_   _|    / \     / ___| |_   _| ======    (c)03.10.2025       *
+ *      ======   | |     / _ \   | |       | |   ======        v1.0.0          *
+ *      ======   | |    / ___ \  | |___    | |   ======                        *
+ *      ======   |_|   /_/   \_\  \____|   |_|   ======                        *
+ *                                                                             *
  ******************************************************************************/
 #ifndef __TACT_CORE_H
 #define __TACT_CORE_H
@@ -77,43 +77,43 @@
 /*******************************************************************************
  * Global pre-processor symbols/macros ('#define')
  ******************************************************************************/
-#define TACT_CMD_SAVE             "<S>"
-#define TACT_CMD_FORCE            "<F>"
-#define TACT_CMD_CRLF             "\r\n"
-#define TACT_CMD_CR               "\r"
-#define TACT_CMD_LF               "\n"
-#define TACT_CMD_CTRL_Z           "\x1a"
-#define TACT_CMD_OK               TACT_CMD_CRLF"OK"TACT_CMD_CRLF
-#define TACT_CMD_ERROR            TACT_CMD_CRLF"ERROR"TACT_CMD_CRLF
+#define TACT_CMD_SAVE      "<S>"
+#define TACT_CMD_FORCE     "<F>"
+#define TACT_CMD_CRLF      "\r\n"
+#define TACT_CMD_CR        "\r"
+#define TACT_CMD_LF        "\n"
+#define TACT_CMD_CTRL_Z    "\x1a"
+#define TACT_CMD_OK        TACT_CMD_CRLF"OK"TACT_CMD_CRLF
+#define TACT_CMD_ERROR     TACT_CMD_CRLF"ERROR"TACT_CMD_CRLF
 
-#define TACT_ITEM_SIZE            sizeof(tact_item_t)
-#define TACT_URC_SIZE             sizeof(tact_urc_queue_t)
+#define TACT_ITEM_SIZE     sizeof(tact_item_t)
+#define TACT_URC_SIZE      sizeof(tact_urc_queue_t)
 
 #define TACT_ITEM(req_, prefix_, parce_type_, retries_, timeout_, err_step_, ok_step_, cb_, format_, ...) \
-{                                                                                                        \
-  .req = req_,                                                                                           \
-  .parce_type = parce_type_,                                                                             \
-  .answ =                                                                                                \
-  {                                                                                                      \
-    .prefix = prefix_,                                                                                   \
-    .format = format_,                                                                                   \
+{                                                                                                         \
+  .req = req_,                                                                                            \
+  .parce_type = parce_type_,                                                                              \
+  .answ =                                                                                                 \
+  {                                                                                                       \
+    .prefix = prefix_,                                                                                    \
+    .format = format_,                                                                                    \
     .ptrs = (void*[]){__VA_ARGS__, TACT_NO_ARG},                                                          \
-    .cb = cb_                                                                                            \
-  },                                                                                                     \
-  .meta =                                                                                                \
-  {                                                                                                      \
-    .wait = timeout_,                                                                                    \
-    .rpt_cnt = retries_,                                                                                 \
-    .err_step = err_step_,                                                                               \
-    .ok_step = ok_step_                                                                                  \
-  }                                                                                                      \
+    .cb = cb_                                                                                             \
+  },                                                                                                      \
+  .meta =                                                                                                 \
+  {                                                                                                       \
+    .wait = timeout_,                                                                                     \
+    .rpt_cnt = retries_,                                                                                  \
+    .err_step = err_step_,                                                                                \
+    .ok_step = ok_step_                                                                                   \
+  }                                                                                                       \
 }
 
-#define TACT_ARG(src, field) ((void*)offsetof(src, field))
-#define TACT_NO_ARG          (void*)0xFFFF
+#define TACT_ARG(src, field)   ((void*)offsetof(src, field))
+#define TACT_NO_ARG            (void*)0xFFFF
 
-#define TACT_CRITICAL_ENTER  _tact_crit_enter();
-#define TACT_CRITICAL_EXIT   _tact_crit_exit();
+#define TACT_CRITICAL_ENTER    _tact_crit_enter();
+#define TACT_CRITICAL_EXIT     _tact_crit_exit();
 
 /*******************************************************************************
  * Global type definitions ('typedef')
@@ -129,26 +129,26 @@ enum
 };
 
 typedef struct tact_urc_queue_t{
-  char* prefix;  // Char prefix to find the URC
-  tact_urc_cb cb; // Callback for this URC
+  char* prefix;    // Char prefix to find the URC
+  tact_urc_cb cb;  // Callback for this URC
 } tact_urc_queue_t;
 
 typedef struct tact_item_t
 {
-  char* req;  //Sended request, could be string or literal
+  char* req;                    //Sended request, could be string or literal
   tact_parce_type_t parce_type;
-  uint8_t owned; //Internal ownership flags for copied req and prefix
+  uint8_t owned;                //Internal ownership flags for copied req and prefix
   struct{
-    char *prefix;        //Prefix to find in answer
-    char *format;        //format for parcing answer
-    void **ptrs;         //Offsets to output fields, resolved when enqueued
-    answ_parce_cb_t cb;  //Callback by the end
+    char *prefix;               //Prefix to find in answer
+    char *format;               //format for parcing answer
+    void **ptrs;                //Offsets to output fields, resolved when enqueued
+    answ_parce_cb_t cb;         //Callback by the end
   } answ;
   struct {
-    uint16_t wait;    // wait time (up to 65535) in 10ms
-    uint8_t rpt_cnt;  // repeat counter (up to 255)
-    int8_t err_step;  // error step (-127 to 127)  
-    int8_t ok_step;   // success step (-127 to 127)
+    uint16_t wait;              // wait time (up to 65535) in 10ms
+    uint8_t rpt_cnt;            // repeat counter (up to 255)
+    int8_t err_step;            // error step (-127 to 127)  
+    int8_t ok_step;             // success step (-127 to 127)
   } meta;
 } tact_item_t;
 
@@ -157,12 +157,12 @@ typedef struct tact_item_t
  ******************************************************************************/
 typedef void (*tact_printf_t)(const char *string);
 
-typedef uint16_t (*tact_write_t)(uint8_t* buff, //buff where data will be written
-                                uint16_t len); //len of data
+typedef uint16_t (*tact_write_t)(uint8_t* buff,  //buff where data will be written
+                                uint16_t len);   //len of data
 
 typedef void (*tact_entity_cb_t)(const bool result,       //result
-                                void* const meta,        //passed meta from @tact_entity_t
-                                const void* const data); //data ptr from @tact_entity_t
+                                void* const meta,         //passed meta from @tact_entity_t
+                                const void* const data);  //data ptr from @tact_entity_t
 
 typedef uint8_t tact_proc_states_t;
 enum
@@ -182,42 +182,38 @@ typedef struct {
 typedef struct tact_init_t{
   tact_printf_t tact_printf;    //custom printf fucntion
   tact_write_t tact_write;      //custom write function
-  O1HeapInstance* heap;       //instance for custom heap
-  tact_ring_buffer_t* rx_buff; //rx ring buffer 
-  bool init;                  //init flag
+  O1HeapInstance* heap;         //instance for custom heap
+  tact_ring_buffer_t* rx_buff;  //rx ring buffer 
+  bool init;                    //init flag
 } tact_init_t; 
 
 typedef struct tact_entity_t{
   tact_item_t*       item;       //list of items
-  uint8_t           item_cnt;   //amount of items
-  uint8_t           item_id;    //current id of executionable items
-  uint16_t          timer;      //timer
+  uint8_t           item_cnt;    //amount of items
+  uint8_t           item_id;     //current id of executionable items
+  uint16_t          timer;       //timer
   tact_entity_cb_t   cb;         //cb for item
-  void*             data;       //usefull data from execution
-  void*             meta;       //meta data
-  uint16_t          data_size;  //usefull data size
-  uint16_t          tx_offset;  //request bytes already accepted by tact_write
-  uint16_t          tx_timer;   //timeout budget while a partial request is being written
-  bool              tx_started; //request transmission has started
+  void*             data;        //usefull data from execution
+  void*             meta;        //meta data
+  uint16_t          data_size;   //usefull data size
+  uint16_t          tx_offset;   //request bytes already accepted by tact_write
+  uint16_t          tx_timer;    //timeout budget while a partial request is being written
+  bool              tx_started;  //request transmission has started
   tact_proc_states_t state;      //state
 } tact_entity_t;
 
 typedef struct tact_entity_queue_t{
   tact_entity_t entity[TACT_ENTITY_QUEUE_SIZE]; //entity queue
-  uint8_t entity_head;  //entitiy head
-  uint8_t entity_tail;  //entity tail
-  uint8_t entity_cnt;   //entity counter
+  uint8_t entity_head;                          //entitiy head
+  uint8_t entity_tail;                          //entity tail
+  uint8_t entity_cnt;                           //entity counter
 } tact_entity_queue_t;
 
 typedef struct tact_context_t {
-  tact_entity_queue_t entity_queue; //entity queue
+  tact_entity_queue_t entity_queue;                //entity queue
   tact_urc_queue_t urc_queue[TACT_URC_QUEUE_SIZE]; //urc queue
-  tact_init_t init_struct; //init struct
-  #ifdef __cplusplus
-  alignas(O1HEAP_ALIGNMENT) uint8_t mem_pool[TACT_MEMORY_POOL_SIZE];
-  #else
-  _Alignas(O1HEAP_ALIGNMENT) uint8_t mem_pool[TACT_MEMORY_POOL_SIZE];
-  #endif
+  tact_init_t init_struct;                         //init struct
+  uint8_t mem_pool[TACT_MEMORY_POOL_SIZE] __attribute__((aligned(O1HEAP_ALIGNMENT)));
   uint32_t time;
   bool proc_active;  //guards the active entity against reentrant proc/dequeue/deinit
 } tact_context_t;
@@ -229,25 +225,23 @@ typedef struct tact_context_t {
  * Global function prototypes (definition in C source)
  ******************************************************************************/
 /*******************************************************************************
- ** @brief  Init tact lib  
- ** @param  ctx        core context
- ** @param  tact_printf pointer to user func of printf
- ** @param  tact_write  pointer to user func of write to uart
- ** @param  rx_buff    struct to ring buffer
- ** @return none
+ ** @brief  Initialize the TACT library context.
+ ** @param  ctx         Core context; must be zero-initialized before first use.
+ ** @param  tact_printf Callback used for formatted diagnostic output.
+ ** @param  tact_write  Callback used to transmit bytes to the device interface.
+ ** @param  rx_buff     Receive ring buffer used by the TACT parser.
+ ** @retval true  Context initialized successfully.
+ ** @retval false Invalid argument, invalid ring-buffer state, or context already initialized.
  ******************************************************************************/
-/* The context must be zero-initialized before its first initialization. */
-bool tact_init_ex(tact_context_t* const ctx, const tact_printf_t tact_printf, const tact_write_t tact_write, tact_ring_buffer_t* rx_buff);
-void tact_init(tact_context_t* const ctx, const tact_printf_t tact_printf, const tact_write_t tact_write, tact_ring_buffer_t* rx_buff);
+bool tact_init(tact_context_t* const ctx, const tact_printf_t tact_printf, const tact_write_t tact_write, tact_ring_buffer_t* rx_buff);
 
 /*******************************************************************************
- ** @brief  DeInit tact lib  
- ** @param  ctx core context
- ** @return none
+ ** @brief  Deinitialize the TACT library context and release allocated resources.
+ ** @param  ctx Core context to deinitialize.
+ ** @retval true  Context deinitialized successfully.
+ ** @retval false Invalid context, not initialized, or processing is currently active.
  ******************************************************************************/
-void tact_deinit(tact_context_t* const ctx);
-/** Return false without changing the context if processing is currently active. */
-bool tact_deinit_ex(tact_context_t* const ctx);
+bool tact_deinit(tact_context_t* const ctx);
 
 /*******************************************************************************
  ** @brief  Function to append main queue with new group of at cmds

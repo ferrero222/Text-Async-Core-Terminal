@@ -1,10 +1,10 @@
-/******************************************************************************
- *                              _    ____   ____                              *
- *                   ======    / \  / ___| / ___| ======       (c)03.10.2025  *
- *                   ======   / _ \ \___ \| |     ======           v1.0.0     *
- *                   ======  / ___ \ ___) | |___  ======                      *
- *                   ====== /_/   \_\____/ \____| ======                      *  
- *                                                                            *
+/*******************************************************************************
+ *              _____      _       ____   _____                                *
+ *      ====== |_   _|    / \     / ___| |_   _| ======    (c)03.10.2025       *
+ *      ======   | |     / _ \   | |       | |   ======        v1.0.0          *
+ *      ======   | |    / ___ \  | |___    | |   ======                        *
+ *      ======   |_|   /_/   \_\  \____|   |_|   ======                        *
+ *                                                                             *
  ******************************************************************************/
 /*******************************************************************************
  * Include files
@@ -53,7 +53,6 @@ static void tact_chain_step_cb(const bool result, void* const meta, const void* 
 {
   tact_chain_t* chain = (tact_chain_t*)meta;
   if(!chain || !chain->callback_pending) return;
-
   uint32_t completed_step = chain->pending_step;
   if(completed_step >= chain->step_count)
   {
@@ -349,6 +348,7 @@ static bool tact_chain_step_function_proc(tact_chain_t* chain, chain_step_t* con
   switch(step->state) 
   {
      case TACT_CHAIN_STEP_IDLE: 
+          {
           TACT_DEBUG(chain->ctx, "[TACT][INFO] Starting step '%s'", step->name); // Start executing the function
           step->state = TACT_CHAIN_STEP_RUNNING;
           chain->pending_step = chain->current_step;
@@ -365,6 +365,7 @@ static bool tact_chain_step_function_proc(tact_chain_t* chain, chain_step_t* con
             if(step->execution_count < UINT8_MAX) ++step->execution_count;
           }
           break; 
+          }
      case TACT_CHAIN_STEP_RUNNING: // Waiting for callback - do nothing this cycle
           break;
      case TACT_CHAIN_STEP_SUCCESS: 
@@ -404,14 +405,21 @@ static bool tact_chain_step_function_proc(tact_chain_t* chain, chain_step_t* con
   return true;
 }
 
-/** 
- * @brief Chain step exec proc
- */
+/*******************************************************************************
+ * @brief Execute one synchronous action and follow its result target.
+ * @details Passes the chain's TACT context and the borrowed parameter pointer
+ *          directly to the action. The action may update its parameter between
+ *          loop iterations; no copy or asynchronous callback is introduced.
+ * @param[in,out] chain Running chain whose current step is being executed.
+ * @param[in,out] step EXEC step with its function, parameter, and targets.
+ * @retval true The action ran and its transition was accepted.
+ * @retval false The function is missing or the transition failed.
+ ******************************************************************************/
 static bool tact_chain_step_exec_proc(tact_chain_t* chain, chain_step_t* const step)
 {
   if(step->action.exec.function) // Exec are executed synchronously
   {
-    bool exec_result = step->action.exec.function();
+    bool exec_result = step->action.exec.function(chain->ctx, step->action.exec.param);
     TACT_DEBUG(chain->ctx, "[TACT][INFO] Execution '%s': %s", step->name, exec_result ? "true" : "false");
     const char *target = exec_result ? step->action.exec.true_target : step->action.exec.false_target;  // Jump based on exec result
     if(!tact_chain_execute_step_jump(chain, target)) 
@@ -529,21 +537,18 @@ tact_chain_t* tact_chain_create(const char* const name, const chain_step_t* cons
   if((uint64_t)step_count > SIZE_MAX / sizeof(*steps)) return NULL;
   #endif
   if(!tact_chain_validate_steps(steps, step_count)) return NULL;
-    
   // Calculate required loop stack size based on actual loop nesting
   uint32_t required_stack_size = tact_chain_cal_max_loop_depth(steps, step_count);
   if(!required_stack_size) return NULL;
   #if SIZE_MAX < UINT64_MAX
   if((uint64_t)required_stack_size > SIZE_MAX / sizeof(tact_loop_stack_item_t)) return NULL;
   #endif
-  
   // Allocate memory for chain structure
   tact_chain_t *chain = (tact_chain_t*)tact_malloc(ctx, sizeof(tact_chain_t));
   if(!chain) 
   {
     return NULL;
   }
-  
   // Allocate memory for step copy (ensures steps survive function return)
   chain_step_t *steps_copy = (chain_step_t*)tact_malloc(ctx, step_count * sizeof(chain_step_t));
   if(!steps_copy) 
@@ -551,10 +556,8 @@ tact_chain_t* tact_chain_create(const char* const name, const chain_step_t* cons
     tact_free(ctx, chain);
     return NULL;
   }
-  
   // Copy steps to heap
   memcpy(steps_copy, steps, step_count * sizeof(chain_step_t));
-  
   // Initialize chain structure
   memset(chain, 0, sizeof(tact_chain_t));
   chain->name = name;
@@ -563,7 +566,6 @@ tact_chain_t* tact_chain_create(const char* const name, const chain_step_t* cons
   chain->loop_stack_size = required_stack_size; // Dynamic size based on actual needs
   chain->ctx = ctx;
   chain->pending_step = UINT32_MAX;
-
   // Allocate loop stack with calculated size
   chain->loop_stack = (tact_loop_stack_item_t*)tact_malloc(ctx, chain->loop_stack_size * sizeof(tact_loop_stack_item_t));  
   if(!chain->loop_stack) 
@@ -572,9 +574,7 @@ tact_chain_t* tact_chain_create(const char* const name, const chain_step_t* cons
     tact_free(ctx, chain);
     return NULL;
   }
-
   memset(chain->loop_stack, 0, chain->loop_stack_size * sizeof(tact_loop_stack_item_t));
-
   TACT_DEBUG(
     chain->ctx, "[TACT][INFO] Created chain '%s' with %u steps, loop stack: %u, memory used: %d/%d",        
     name, step_count, required_stack_size, o1heapGetDiagnostics(tact_get_init(ctx).heap).allocated, o1heapGetDiagnostics(tact_get_init(ctx).heap).capacity
@@ -584,16 +584,12 @@ tact_chain_t* tact_chain_create(const char* const name, const chain_step_t* cons
 
 
 /*******************************************************************************
- ** @brief  Destroy chain and all resources
+ ** @brief  Destroy a chain and release its allocated resources.
  ** @param  chain Chain to destroy
- ** @retval none
+ ** @retval true  Chain destroyed successfully.
+ ** @retval false Invalid chain, active execution/callback, or invalid TACT context.
  *******************************************************************************/
-void tact_chain_destroy(tact_chain_t* const chain) 
-{
-  (void)tact_chain_destroy_ex(chain);
-}
-
-bool tact_chain_destroy_ex(tact_chain_t* const chain)
+bool tact_chain_destroy(tact_chain_t* const chain)
 {
   if(!chain || chain->callback_pending || chain->function_active || chain->run_active) return false;
   tact_context_t* ctx = chain->ctx;
@@ -612,8 +608,7 @@ bool tact_chain_destroy_ex(tact_chain_t* const chain)
  *******************************************************************************/
 bool tact_chain_start(tact_chain_t* const chain) 
 {
-  if(!chain || chain->callback_pending || chain->function_active || chain->run_active)
-    return false;
+  if(!chain || chain->callback_pending || chain->function_active || chain->run_active) return false;
   tact_chain_reset_state(chain);
   chain->is_running = true;
   TACT_DEBUG(chain->ctx, "[TACT][INFO] Chain '%s' started", chain->name);

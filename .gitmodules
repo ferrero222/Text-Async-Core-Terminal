@@ -5,7 +5,7 @@
 	path = libs/dbc
 	url = https://github.com/QuantumLeaps/DBC-for-embedded-C.git
 [submodule "libs/ringslice"]
-	path = libs/ringslice
+	path = libs/ringslices
 	url = https://github.com/ferrero222/ringslice.git
 	branch = dev
 [submodule "libs/o1heap"]

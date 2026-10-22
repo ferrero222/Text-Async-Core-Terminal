@@ -1,10 +1,10 @@
-/******************************************************************************
- *                              _    ____   ____                              *
- *                   ======    / \  / ___| / ___| ======       (c)03.10.2025  *
- *                   ======   / _ \ \___ \| |     ======           v1.0.0     *
- *                   ======  / ___ \ ___) | |___  ======                      *
- *                   ====== /_/   \_\____/ \____| ======                      *
- *                                                                            *
+/*******************************************************************************
+ *              _____      _       ____   _____                                *
+ *      ====== |_   _|    / \     / ___| |_   _| ======    (c)03.10.2025       *
+ *      ======   | |     / _ \   | |       | |   ======        v1.0.0          *
+ *      ======   | |    / ___ \  | |___    | |   ======                        *
+ *      ======   |_|   /_/   \_\  \____|   |_|   ======                        *
+ *                                                                             *
  ******************************************************************************/
 #ifndef __TACT_MDL_MQTT_H
 #define __TACT_MDL_MQTT_H
@@ -45,11 +45,11 @@
 /* The caller supplies modem-valid values and AT-safe text. These functions
  * only check required strings, their bounds, and command buffer capacity. */
 typedef struct tact_mdl_mqtt_cfg_t {
-  uint8_t client_index;                                 // Supported client IDs: 0 or 1.
+  uint8_t client_index;                                   // Supported client IDs: 0 or 1.
   char client_id[TACT_MDL_MQTT_CLIENT_ID_MAX + 1];        // NUL-terminated client ID, 1..MAX bytes.
   char server_addr[TACT_MDL_MQTT_SERVER_ADDR_MAX + 1];    // NUL-terminated tcp://host[:port], 9..MAX bytes; TLS is not configured here.
-  uint16_t keepalive;                                    // Keep-alive interval in seconds, 1..64800.
-  uint8_t clean_session;                                 // 1 requests a clean session; 0 requests a persistent session.
+  uint16_t keepalive;                                     // Keep-alive interval in seconds, 1..64800.
+  uint8_t clean_session;                                  // 1 requests a clean session; 0 requests a persistent session.
   char username[TACT_MDL_MQTT_USER_MAX + 1];              // Optional NUL-terminated username; empty disables credentials.
   char password[TACT_MDL_MQTT_PASS_MAX + 1];              // NUL-terminated password; requires a non-empty username.
 } tact_mdl_mqtt_cfg_t;

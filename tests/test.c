@@ -8,11 +8,15 @@
 #include "tact_port.h" // 
 #include "tact_chain.h"  // ET: embedded test
 #include "tact_mdl_general.h"
+#include "tact_mdl_lte.h"
 #include "tact_mdl_sms.h"
 #include "tact_mdl_gprs.h"
 #include "tact_mdl_gprs_server.h"
 #include "tact_mdl_mqtt.h"
 #include <stdio.h>
+
+/* Reuse the LTE data record as a generic TACT parsing buffer in these tests. */
+typedef tact_mdl_lte_rtd_t tact_mdl_rtd_t;
 
 static tact_context_t test_ctx = {0};
 
@@ -121,7 +125,7 @@ static void testLifecycleEntityCB(const bool result, void* const meta, const voi
   (void)meta;
   (void)data;
   callback_dequeue_result = tact_entity_dequeue(&test_ctx);
-  callback_deinit_result = tact_deinit_ex(&test_ctx);
+  callback_deinit_result = tact_deinit(&test_ctx);
 }
 
 static void testTxEntityCB(const bool result, void* const meta, const void* const data)
@@ -154,8 +158,18 @@ bool testChainFunc(tact_context_t* const ctx, const tact_entity_cb_t cb, const v
   return res;
 }
 
-bool testChainCond(void)
+/*******************************************************************************
+ * @brief Provide the always-true condition used by existing Chain examples.
+ * @details Accepts the EXEC context and borrowed parameter without changing
+ *          the original condition behavior.
+ * @param[in] ctx Unused TACT context passed automatically by the Chain.
+ * @param[in] param Unused caller-owned EXEC parameters.
+ * @retval true The condition is always satisfied.
+ ******************************************************************************/
+bool testChainCond(tact_context_t* const ctx, void* const param)
 {
+  (void)ctx;
+  (void)param;
   return true;
 }
 
@@ -183,7 +197,7 @@ static void testChainDestroyFromCallback(const bool result, void* const meta, co
   (void)result;
   (void)meta;
   (void)data;
-  chain_destroy_from_callback_result = tact_chain_destroy_ex(chain_to_destroy_from_callback);
+  chain_destroy_from_callback_result = tact_chain_destroy(chain_to_destroy_from_callback);
   chain_to_destroy_from_callback = NULL;
 }
 
@@ -207,8 +221,8 @@ TEST_GROUP("TACT") {
     TEST("tact_init()/tact_deinit() testing") {
       tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
       VERIFY(_tact_get_init(&test_ctx).init);
-      VERIFY(tact_deinit_ex(&test_ctx));
-      VERIFY(!tact_deinit_ex(&test_ctx));
+      VERIFY(tact_deinit(&test_ctx));
+      VERIFY(!tact_deinit(&test_ctx));
       VERIFY(!_tact_get_init(&test_ctx).init);
     }
 
@@ -221,7 +235,7 @@ TEST_GROUP("TACT") {
         .tail = 0,
         .size = sizeof(rx_data),
       };
-      VERIFY(tact_init_ex(&test_ctx, test_printf, test_write, &ring));
+      VERIFY(tact_init(&test_ctx, test_printf, test_write, &ring));
       tact_item_t item = TACT_ITEM(NULL, "ACK", TACT_PARCE_RAW, 0, 10, 0, 0,
                                  NULL, NULL, TACT_NO_ARG);
       callback_dequeue_result = true;
@@ -233,7 +247,7 @@ TEST_GROUP("TACT") {
       VERIFY(!callback_deinit_result);
       VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0);
       VERIFY(_tact_get_init(&test_ctx).init);
-      VERIFY(tact_deinit_ex(&test_ctx));
+      VERIFY(tact_deinit(&test_ctx));
     }
 
     TEST("tact_entity_enqueue()/tact_entity_dequeue() simple AT`s") {
@@ -1176,7 +1190,7 @@ TEST_GROUP("TACT") {
         .tail = 0,
         .size = sizeof(rx_bytes),
       };
-      VERIFY(tact_init_ex(&test_ctx, test_printf, test_write, &ring));
+      VERIFY(tact_init(&test_ctx, test_printf, test_write, &ring));
       tact_urc_queue_t urc = {"+TEST", testUrcCB};
       VERIFY(tact_urc_enqueue(&test_ctx, &urc));
       static const uint8_t stream[] = "\r\n+RSP: 1\r\n\r\n+TEST: 1\r\n+TAIL: 2\r\n";
@@ -1295,7 +1309,7 @@ TEST_GROUP("TACT") {
       };
       partial_tx_capture_len = 0;
       memset(partial_tx_capture, 0, sizeof(partial_tx_capture));
-      VERIFY(tact_init_ex(&test_ctx, test_printf, partial_test_write, &ring));
+      VERIFY(tact_init(&test_ctx, test_printf, partial_test_write, &ring));
       tact_item_t item = TACT_ITEM("AT+X"TACT_CMD_CRLF, "DONE", TACT_PARCE_RAW,
                                  0, 20, 0, 0, NULL, NULL, TACT_NO_ARG);
       VERIFY(tact_entity_enqueue(&test_ctx, &item, 1, NULL, 0, NULL));
@@ -1315,7 +1329,7 @@ TEST_GROUP("TACT") {
       VERIFY(tact_rx_push(&test_ctx, (const uint8_t*)"DONE", 4));
       _tact_core_proc(&test_ctx);
       VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0);
-      VERIFY(tact_deinit_ex(&test_ctx));
+      VERIFY(tact_deinit(&test_ctx));
     }
 
   TEST("tact_core_proc() does not retry a request after a partial UART write stalls") {
@@ -1331,7 +1345,7 @@ TEST_GROUP("TACT") {
       memset(partial_tx_capture, 0, sizeof(partial_tx_capture));
       entity_callback_count = 0;
       entity_callback_result = true;
-      VERIFY(tact_init_ex(&test_ctx, test_printf, stall_after_two_test_write, &ring));
+      VERIFY(tact_init(&test_ctx, test_printf, stall_after_two_test_write, &ring));
       tact_item_t item = TACT_ITEM("AT+PARTIAL"TACT_CMD_CRLF, "OK", TACT_PARCE_RAW,
                                  3, 3, 0, 0, NULL, NULL, TACT_NO_ARG);
       VERIFY(tact_entity_enqueue(&test_ctx, &item, 1, testTxEntityCB, 0, NULL));
@@ -1345,7 +1359,7 @@ TEST_GROUP("TACT") {
       VERIFY(memcmp(partial_tx_capture, "AT", 2u) == 0);
       VERIFY(entity_callback_count == 1u);
       VERIFY(!entity_callback_result);
-      VERIFY(tact_deinit_ex(&test_ctx));
+      VERIFY(tact_deinit(&test_ctx));
     }
 
     TEST("GPRS stream parser accepts fragmented non-NUL IPD headers") {
@@ -1415,7 +1429,7 @@ TEST_GROUP("TACT") {
       memset(captured_uart_tx, 0, sizeof(captured_uart_tx));
       entity_callback_count = 0;
       entity_callback_result = false;
-      VERIFY(tact_init_ex(&test_ctx, test_printf, capture_uart_write, &tact_ring_buffer));
+      VERIFY(tact_init(&test_ctx, test_printf, capture_uart_write, &tact_ring_buffer));
 
       tact_mdl_sms_msg_t sms = {0};
       memcpy(sms.num, "+1234567890", sizeof("+1234567890"));
@@ -1456,7 +1470,7 @@ TEST_GROUP("TACT") {
       VERIFY(memcmp(captured_uart_tx, expected_tx, sizeof(expected_tx) - 1u) == 0);
       VERIFY(entity_callback_count == 1u && entity_callback_result);
       VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0u);
-      VERIFY(tact_deinit_ex(&test_ctx));
+      VERIFY(tact_deinit(&test_ctx));
     }
 
   TEST("SMS module quotes service-centre address and uses the documented CMGR syntax") {
@@ -1515,31 +1529,25 @@ TEST_GROUP("TACT") {
       VERIFY(!_tact_get_init(&test_ctx).init);
     }
 
-  TEST("GPRS send copies transient payload and response prefix") {
+  TEST("GPRS send queues only a copied fixed-length command and prompt") {
       tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      char payload[] = "PING";
-      char answer[] = "SEND OK";
-      tact_mdl_gprs_data_t tcp = {.data = payload, .answ = answer};
+      uint8_t payload[] = {'P', 0, '\x1A', 'G'};
+      tact_mdl_gprs_stream_t tcp = {.buffer = payload, .size = sizeof(payload), .direction = TACT_MDL_GPRS_STREAM_TX};
       VERIFY(tact_mdl_gprs_socket_send_recieve(&test_ctx, NULL, &tcp, NULL));
 
       payload[0] = 'X';
-      answer[0] = 'X';
       tact_entity_t* entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      VERIFY(strcmp(entity->item[1].req + strlen(TACT_CMD_SAVE), "AT+CIPSEND=5\r\n") == 0);
-      VERIFY(memcmp(entity->item[2].req + strlen(TACT_CMD_SAVE), "PING", 4) == 0);
-      VERIFY((uint8_t)entity->item[2].req[strlen(TACT_CMD_SAVE) + 4u] == 0x1a);
-      VERIFY(strcmp(entity->item[2].answ.prefix + strlen(TACT_CMD_SAVE), "SEND OK") == 0);
+      VERIFY(strcmp(entity->item[2].req + strlen(TACT_CMD_SAVE), "AT+CIPSEND=4\r\n") == 0);
+      VERIFY(strcmp(entity->item[2].answ.prefix, ">") == 0);
 
       tact_deinit(&test_ctx);
       VERIFY(!_tact_get_init(&test_ctx).init);
     }
 
-  TEST("GPRS send allocation failure preserves core context") {
+  TEST("GPRS send rejects an oversized block without changing the core") {
       tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      char payload[5000];
-      memset(payload, 'D', sizeof(payload) - 1u);
-      payload[sizeof(payload) - 1u] = '\0';
-      tact_mdl_gprs_data_t tcp = {.data = payload, .answ = NULL};
+      uint8_t payload[5000];
+      tact_mdl_gprs_stream_t tcp = {.buffer = payload, .size = sizeof(payload), .direction = TACT_MDL_GPRS_STREAM_TX};
       VERIFY(!tact_mdl_gprs_socket_send_recieve(&test_ctx, NULL, &tcp, NULL));
       VERIFY(_tact_get_init(&test_ctx).init);
       VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0);
@@ -1596,7 +1604,7 @@ TEST_GROUP("TACT") {
         .tail = 0,
         .size = sizeof(rx_data),
       };
-      VERIFY(tact_init_ex(&test_ctx, test_printf, test_write, &ring));
+      VERIFY(tact_init(&test_ctx, test_printf, test_write, &ring));
       tact_mdl_mqtt_msg_t msg = {
         .client_index = 0,
         .qos = 1,
@@ -1633,7 +1641,7 @@ TEST_GROUP("TACT") {
       VERIFY(o1heapGetDiagnostics(heap).allocated == 0);
       VERIFY(!_tact_get_init(&test_ctx).init);
 
-      VERIFY(tact_init_ex(&test_ctx, test_printf, test_write, &ring));
+      VERIFY(tact_init(&test_ctx, test_printf, test_write, &ring));
       msg.topic = "/demo/foo+/status";
       VERIFY(tact_mdl_mqtt_subscribe(&test_ctx, NULL, &msg, NULL));
       VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 1u);
@@ -1648,7 +1656,7 @@ TEST_GROUP("TACT") {
       chain_step_t empty_name[] = { TACT_CHAIN_DELAY(0) };
       empty_name[0].name = "";
       chain_step_t ambiguous_target[] = {
-        TACT_CHAIN_EXEC("ROUTE", "DUP", "STOP", testChainCond),
+        TACT_CHAIN_EXEC("ROUTE", "DUP", "STOP", testChainCond, NULL),
         TACT_CHAIN_DELAY(0),
         TACT_CHAIN_DELAY(0),
       };
@@ -1686,7 +1694,7 @@ TEST_GROUP("TACT") {
       VERIFY(!tact_chain_run(chain));
       VERIFY(!tact_chain_is_running(chain));
       VERIFY(deferred_function_calls == 3u);
-      VERIFY(tact_chain_destroy_ex(chain));
+      VERIFY(tact_chain_destroy(chain));
       tact_deinit(&test_ctx);
     }
 
@@ -1846,7 +1854,7 @@ TEST_GROUP("TACT") {
             TACT_CHAIN("SOCKET SEND RECIVE", "NEXT", "SOCKET DISCONNECT", testChainFunc, testEntityCB, test_buffer, test_buffer, 3),
         TACT_CHAIN_LOOP_END,
 
-        TACT_CHAIN_EXEC("CHECK CONN", "NEXT", "MODEM RESET", testChainCond),
+        TACT_CHAIN_EXEC("CHECK CONN", "NEXT", "MODEM RESET", testChainCond, NULL),
         TACT_CHAIN("SOCKET DISCONNECT", "NEXT", "PREV", testChainFunc, testEntityCB, test_buffer, test_buffer, 3),
         TACT_CHAIN("GPRS DEINIT",       "NEXT", "MODEM RESET", testChainFunc, testEntityCB, test_buffer, test_buffer, 3),
         TACT_CHAIN("MODEM RESET",       "NEXT", "MODEM RESET", testChainFunc, testEntityCB, test_buffer, test_buffer, 3),
@@ -1893,7 +1901,7 @@ TEST_GROUP("TACT") {
             TACT_CHAIN_LOOP_END,
         TACT_CHAIN_LOOP_END,
 
-        TACT_CHAIN_EXEC("5",  "NEXT", "STOP", testChainCond),
+        TACT_CHAIN_EXEC("5",  "NEXT", "STOP", testChainCond, NULL),
         TACT_CHAIN("6",       "NEXT", "PREV", testChainFunc, testEntityCB, test_buffer, test_buffer, 3),
         TACT_CHAIN("7",       "NEXT", "STOP", testChainFunc, testEntityCB, test_buffer, test_buffer, 3),
         TACT_CHAIN("8",       "NEXT", "STOP", testChainFunc, testEntityCB, test_buffer, test_buffer, 3),
@@ -1931,14 +1939,14 @@ TEST_GROUP("TACT") {
       VERIFY(chain->callback_pending);
       tact_chain_stop(chain);
       VERIFY(!tact_chain_start(chain));
-      VERIFY(!tact_chain_destroy_ex(chain));
+      VERIFY(!tact_chain_destroy(chain));
 
       deferred_chain_cb(true, deferred_chain_meta, NULL);
       VERIFY(chain_user_callback_called);
       VERIFY(!chain->callback_pending);
       VERIFY(tact_chain_start(chain));
       tact_chain_stop(chain);
-      VERIFY(tact_chain_destroy_ex(chain));
+      VERIFY(tact_chain_destroy(chain));
       tact_deinit(&test_ctx);
     }
 
