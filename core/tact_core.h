@@ -52,6 +52,7 @@
   #endif
 #endif
 
+//checks
 #if TACT_MAX_ITEMS_PER_ENTITY < 1 || TACT_MAX_ITEMS_PER_ENTITY > UINT8_MAX
   #error "TACT_MAX_ITEMS_PER_ENTITY must fit in tact_item_t::item_cnt"
 #endif
@@ -188,11 +189,11 @@ typedef struct tact_init_t{
 } tact_init_t; 
 
 typedef struct tact_entity_t{
-  tact_item_t*       item;       //list of items
+  tact_item_t*      item;        //list of items
   uint8_t           item_cnt;    //amount of items
   uint8_t           item_id;     //current id of executionable items
   uint16_t          timer;       //timer
-  tact_entity_cb_t   cb;         //cb for item
+  tact_entity_cb_t  cb;          //cb for item
   void*             data;        //usefull data from execution
   void*             meta;        //meta data
   uint16_t          data_size;   //usefull data size

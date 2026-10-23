@@ -342,8 +342,7 @@ bool tact_mdl_ftp_stream_rx(tact_context_t* const ctx, void* const param)
   if(stream->count == stream->size) return true;
   TACT_CRITICAL_ENTER
   tact_ring_buffer_t *ring = init.rx_buff;
-  if(!ring->buffer || !ring->size || ring->tail >= ring->size ||
-     ring->head >= ring->size || ring->count >= ring->size)
+  if(!ring->buffer || !ring->size || ring->tail >= ring->size || ring->head >= ring->size || ring->count >= ring->size)
   {
     TACT_CRITICAL_EXIT
     return false;

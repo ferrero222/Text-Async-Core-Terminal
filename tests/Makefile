@@ -1,34 +1,4 @@
 ##############################################################################
-# Product: Makefile for ET (embedded test) for C CUT on the HOST
-# GitHub: https://github.com/QuantumLeaps/ET
-#
-#                    Q u a n t u m  L e a P s
-#                    ------------------------
-#                    Modern Embedded Software
-#
-# Copyright (C) 2005 Quantum Leaps, <state-machine.com>.
-#
-# SPDX-License-Identifier: MIT
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-##############################################################################
-#
 # NOTE:
 # To use this Makefile on Windows, you will need the GNU make utility, which
 # is included in the QTools collection for Windows, see:
@@ -47,7 +17,7 @@ VPATH := . \
 	../port \
 	../core \
 	../modules \
-	../modules/simcom/sms \
+	../modules/simcom \
 	../libs/ringslices \
 	$(ET_DIR)
 
@@ -58,7 +28,7 @@ INCLUDES := -I. \
 	-I../core \
 	-I../port \
 	-I../modules \
-	-I../modules/simcom/sms \
+	-I../modules/simcom \
 	-I../libs/ringslices \
 	-I$(ET_DIR)
 
@@ -73,8 +43,9 @@ C_SRCS := \
 	tact_core.c \
 	tact_mdl_general.c \
 	tact_mdl_sms.c \
+	tact_mdl_ftp.c \
+	tact_mdl_lte.c \
 	tact_mdl_gprs.c \
-	tact_mdl_gprs_server.c \
 	tact_mdl_mqtt.c \
 	ringslice.c \
 	ringslice_scanf.c \

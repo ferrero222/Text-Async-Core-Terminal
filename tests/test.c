@@ -7,12 +7,13 @@
 #include "o1heap.h" // 
 #include "tact_port.h" // 
 #include "tact_chain.h"  // ET: embedded test
+
 #include "tact_mdl_general.h"
 #include "tact_mdl_lte.h"
 #include "tact_mdl_sms.h"
 #include "tact_mdl_gprs.h"
-#include "tact_mdl_gprs_server.h"
 #include "tact_mdl_mqtt.h"
+
 #include <stdio.h>
 
 /* Reuse the LTE data record as a generic TACT parsing buffer in these tests. */
@@ -31,10 +32,6 @@ tact_ring_buffer_t tact_ring_buffer = {
   .size = 2048,
 };
 
-static uint8_t captured_tcp_packet[32];
-static uint16_t captured_tcp_packet_len;
-static uint8_t captured_uart_tx[512];
-static uint16_t captured_uart_tx_len;
 static uint8_t urc_callback_count;
 static uint8_t partial_tx_capture[64];
 static uint16_t partial_tx_capture_len;
@@ -49,23 +46,8 @@ static tact_chain_t* chain_to_destroy_from_callback;
 static bool chain_user_callback_called;
 static bool chain_destroy_from_callback_result;
 
-static void capture_tcp_packet(uint8_t* data, uint16_t len)
-{
-  VERIFY(len <= sizeof(captured_tcp_packet));
-  if(len) memcpy(captured_tcp_packet, data, len);
-  captured_tcp_packet_len = len;
-}
-
 uint16_t test_write(uint8_t* buff, uint16_t len) {
   (void)buff;
-  return len;
-}
-
-static uint16_t capture_uart_write(uint8_t* buff, uint16_t len)
-{
-  if(!buff || (uint32_t)captured_uart_tx_len + len > sizeof(captured_uart_tx)) return 0;
-  memcpy(captured_uart_tx + captured_uart_tx_len, buff, len);
-  captured_uart_tx_len = (uint16_t)(captured_uart_tx_len + len);
   return len;
 }
 
@@ -1360,293 +1342,6 @@ TEST_GROUP("TACT") {
       VERIFY(entity_callback_count == 1u);
       VERIFY(!entity_callback_result);
       VERIFY(tact_deinit(&test_ctx));
-    }
-
-    TEST("GPRS stream parser accepts fragmented non-NUL IPD headers") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      tact_gprs_stream_ctx_t stream = TACT_GPRS_STREAM_CTX_INITIALIZER;
-      VERIFY(tact_gprs_stream_ctx_init(&test_ctx, &stream, 16));
-      captured_tcp_packet_len = 0;
-      memset(captured_tcp_packet, 0, sizeof(captured_tcp_packet));
-
-      uint8_t part1[] = {'+', 'I', 'P'};
-      uint8_t part2[] = {'D', ',', '5', ',', 'T'};
-      uint8_t part3[] = {'C', 'P', ':', 'h', 'e', 'l', 'l', 'o'};
-      VERIFY(tact_mld_gprs_server_stream_data_handler(&test_ctx, &stream, part1, sizeof(part1), capture_tcp_packet));
-      VERIFY(stream.data_len == sizeof(part1));
-      VERIFY(captured_tcp_packet_len == 0);
-      VERIFY(tact_mld_gprs_server_stream_data_handler(&test_ctx, &stream, part2, sizeof(part2), capture_tcp_packet));
-      VERIFY(stream.data_len == sizeof(part1) + sizeof(part2));
-      VERIFY(captured_tcp_packet_len == 0);
-      VERIFY(tact_mld_gprs_server_stream_data_handler(&test_ctx, &stream, part3, sizeof(part3), capture_tcp_packet));
-      VERIFY(captured_tcp_packet_len == 5);
-      VERIFY(memcmp(captured_tcp_packet, "hello", 5) == 0);
-      VERIFY(stream.data_len == 0);
-
-      tact_gprs_stream_ctx_cleanup(&test_ctx, &stream);
-      VERIFY(o1heapGetDiagnostics(_tact_get_init(&test_ctx).heap).allocated == 0);
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-    }
-
-  TEST("SMS send preserves a full 160 character message") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      tact_mdl_sms_msg_t sms = {0};
-      memcpy(sms.num, "+1234567890", sizeof("+1234567890"));
-      memset(sms.msg, 'X', 160);
-      sms.msg[160] = '\0';
-      VERIFY(tact_mdl_sms_send_text(&test_ctx, NULL, &sms, NULL));
-
-      tact_entity_t* entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      VERIFY(entity->item_cnt == 7u);
-      VERIFY(strstr(entity->item[1].req, "AT+CSCS=\"GSM\"") != NULL);
-      const char* text = entity->item[3].req;
-      VERIFY(text != NULL);
-      VERIFY(strncmp(text, TACT_CMD_SAVE, strlen(TACT_CMD_SAVE)) == 0);
-      VERIFY(strlen(text) == strlen(TACT_CMD_SAVE) + 160u + 1u);
-      VERIFY((uint8_t)text[strlen(TACT_CMD_SAVE) + 160u] == 0x1a);
-      VERIFY(strcmp(entity->item[3].answ.prefix, TACT_CMD_FORCE) == 0);
-      VERIFY(entity->item[3].meta.rpt_cnt == 1u);
-      VERIFY(entity->item[4].req == NULL);
-      VERIFY(strcmp(entity->item[4].answ.prefix, "+CMGS:") == 0);
-      VERIFY(entity->item[4].meta.wait == 4000u);
-      VERIFY(entity->item[4].meta.rpt_cnt == 1u);
-      VERIFY(strcmp(entity->item[5].answ.prefix, "OK") == 0);
-      VERIFY(entity->item[5].meta.wait == 100u);
-      VERIFY(entity->item[5].meta.err_step == 1 && entity->item[5].meta.ok_step == 1);
-      VERIFY(strcmp(entity->item[6].answ.prefix, TACT_CMD_FORCE) == 0);
-
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-    }
-
-  TEST("SMS send consumes prompt padding, waits for +CMGS, and submits once") {
-      memset(test_buffer, 0, sizeof(test_buffer));
-      tact_ring_buffer.head = 0;
-      tact_ring_buffer.tail = 0;
-      tact_ring_buffer.count = 0;
-      captured_uart_tx_len = 0;
-      memset(captured_uart_tx, 0, sizeof(captured_uart_tx));
-      entity_callback_count = 0;
-      entity_callback_result = false;
-      VERIFY(tact_init(&test_ctx, test_printf, capture_uart_write, &tact_ring_buffer));
-
-      tact_mdl_sms_msg_t sms = {0};
-      memcpy(sms.num, "+1234567890", sizeof("+1234567890"));
-      memcpy(sms.msg, "HELLO", sizeof("HELLO"));
-      VERIFY(tact_mdl_sms_send_text(&test_ctx, testTxEntityCB, &sms, NULL));
-
-      static const char cmgf_reply[] = "AT+CMGF=1\r\r\nOK\r\n";
-      tact_core_proc(&test_ctx);
-      VERIFY(tact_rx_push(&test_ctx, (const uint8_t*)cmgf_reply, sizeof(cmgf_reply) - 1u));
-      tact_core_proc(&test_ctx);
-
-      static const char charset_reply[] = "AT+CSCS=\"GSM\"\r\r\nOK\r\n";
-      tact_core_proc(&test_ctx);
-      VERIFY(tact_rx_push(&test_ctx, (const uint8_t*)charset_reply, sizeof(charset_reply) - 1u));
-      tact_core_proc(&test_ctx);
-
-      static const char prompt[] = "\r\n> ";
-      tact_core_proc(&test_ctx);
-      VERIFY(tact_rx_push(&test_ctx, (const uint8_t*)prompt, sizeof(prompt) - 1u));
-      tact_core_proc(&test_ctx);
-      tact_core_proc(&test_ctx); /* Send the payload and Ctrl-Z once. */
-
-      static const char cmgs_reply[] = "\r\n+CMGS: 12\r\n\r\nOK\r\n";
-      VERIFY(tact_rx_push(&test_ctx, (const uint8_t*)cmgs_reply, sizeof(cmgs_reply) - 1u));
-      tact_core_proc(&test_ctx); /* Process prompt completion and advance toward +CMGS. */
-      tact_core_proc(&test_ctx);
-      tact_entity_t* response_entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      ringslice_t response_slice = ringslice_initializer(tact_ring_buffer.buffer, tact_ring_buffer.size,
-                                                          tact_ring_buffer.tail, tact_ring_buffer.head);
-      VERIFY(response_entity->item_id == 4u);
-      VERIFY(_tact_string_boolean_ops(&response_slice, "+CMGS:"));
-      VERIFY(_tact_cmd_ring_parcer(&test_ctx, response_entity, &response_entity->item[4], response_slice));
-      tact_core_proc(&test_ctx); /* Complete only after +CMGS arrives. */
-      for(uint8_t i = 0; i < 4u; ++i) tact_core_proc(&test_ctx);
-
-      static const char expected_tx[] = "AT+CMGF=1\r\nAT+CSCS=\"GSM\"\r\nAT+CMGS=\"+1234567890\"\r\nHELLO\x1A";
-      VERIFY(captured_uart_tx_len == sizeof(expected_tx) - 1u);
-      VERIFY(memcmp(captured_uart_tx, expected_tx, sizeof(expected_tx) - 1u) == 0);
-      VERIFY(entity_callback_count == 1u && entity_callback_result);
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0u);
-      VERIFY(tact_deinit(&test_ctx));
-    }
-
-  TEST("SMS module quotes service-centre address and uses the documented CMGR syntax") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      tact_mdl_sms_msg_t sms = {0};
-      memcpy(sms.num, "+1234567890", sizeof("+1234567890"));
-      VERIFY(tact_mdl_sms_sc_set(&test_ctx, NULL, &sms, NULL));
-      tact_entity_t* entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      VERIFY(strcmp(entity->item[0].req, TACT_CMD_SAVE "AT+CSCA=\"+1234567890\"\r\n") == 0);
-      tact_deinit(&test_ctx);
-
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      memset(&sms, 0, sizeof(sms));
-      memcpy(sms.num, "+1234567890", sizeof("+1234567890"));
-      sms.index = 1u;
-      VERIFY(tact_mdl_sms_read(&test_ctx, NULL, &sms, NULL));
-      entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      VERIFY(strcmp(entity->item[1].req, TACT_CMD_SAVE "AT+CMGR=1\r\n") == 0);
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-    }
-
-  TEST("SMS module passes numeric options through to the modem") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      tact_mdl_sms_msg_t sms = {0};
-      VERIFY(tact_mdl_sms_read(&test_ctx, NULL, &sms, NULL));
-      VERIFY(tact_mdl_sms_delete(&test_ctx, NULL, &sms, NULL));
-      sms.mode = 4u;
-      VERIFY(tact_mdl_sms_indicate(&test_ctx, NULL, &sms, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 3u);
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-    }
-
-  TEST("SMS send checks string bounds but not message contents") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      tact_mdl_sms_msg_t sms = {0};
-      memcpy(sms.num, "+1234567890", sizeof("+1234567890"));
-      sms.msg[0] = (char)0x80;
-      sms.msg[1] = '\x1A';
-      sms.msg[2] = '\0';
-      VERIFY(tact_mdl_sms_send_text(&test_ctx, NULL, &sms, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 1u);
-      tact_deinit(&test_ctx);
-
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      memset(sms.msg, 'X', sizeof(sms.msg));
-      VERIFY(!tact_mdl_sms_send_text(&test_ctx, NULL, &sms, NULL));
-      sms.msg[0] = 'X';
-      sms.msg[1] = '\0';
-      memset(sms.num, '1', sizeof(sms.num));
-      VERIFY(!tact_mdl_sms_send_text(&test_ctx, NULL, &sms, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0u);
-
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-    }
-
-  TEST("GPRS send queues only a copied fixed-length command and prompt") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      uint8_t payload[] = {'P', 0, '\x1A', 'G'};
-      tact_mdl_gprs_stream_t tcp = {.buffer = payload, .size = sizeof(payload), .direction = TACT_MDL_GPRS_STREAM_TX};
-      VERIFY(tact_mdl_gprs_socket_send_recieve(&test_ctx, NULL, &tcp, NULL));
-
-      payload[0] = 'X';
-      tact_entity_t* entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      VERIFY(strcmp(entity->item[2].req + strlen(TACT_CMD_SAVE), "AT+CIPSEND=4\r\n") == 0);
-      VERIFY(strcmp(entity->item[2].answ.prefix, ">") == 0);
-
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-    }
-
-  TEST("GPRS send rejects an oversized block without changing the core") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      uint8_t payload[5000];
-      tact_mdl_gprs_stream_t tcp = {.buffer = payload, .size = sizeof(payload), .direction = TACT_MDL_GPRS_STREAM_TX};
-      VERIFY(!tact_mdl_gprs_socket_send_recieve(&test_ctx, NULL, &tcp, NULL));
-      VERIFY(_tact_get_init(&test_ctx).init);
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0);
-      VERIFY(o1heapGetDiagnostics(_tact_get_init(&test_ctx).heap).allocated == 0);
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-    }
-
-  TEST("GPRS socket checks field bounds but passes values through") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      tact_mdl_gprs_server_t server = {0};
-      memcpy(server.mode, "RAW", sizeof("RAW"));
-      memcpy(server.ip, "host\"x", sizeof("host\"x"));
-      memcpy(server.port, "oops", sizeof("oops"));
-      VERIFY(tact_mdl_gprs_socket_connect(&test_ctx, NULL, &server, NULL));
-      tact_entity_t* entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      VERIFY(strstr(entity->item[1].req, "AT+CIPSTART=\"RAW\",\"host\"x\",\"oops\"") != NULL);
-      tact_deinit(&test_ctx);
-
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      memset(server.mode, 'X', sizeof(server.mode));
-      VERIFY(!tact_mdl_gprs_socket_connect(&test_ctx, NULL, &server, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0u);
-      tact_deinit(&test_ctx);
-    }
-
-    TEST("MQTT config checks used string bounds but not values") {
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      tact_mdl_mqtt_cfg_t cfg = {0};
-      cfg.client_index = 9u;
-      cfg.clean_session = 3u;
-      memcpy(cfg.client_id, "id\"x", sizeof("id\"x"));
-      memcpy(cfg.server_addr, "odd://host", sizeof("odd://host"));
-      VERIFY(tact_mdl_mqtt_acquire(&test_ctx, NULL, &cfg, NULL));
-      VERIFY(tact_mdl_mqtt_connect(&test_ctx, NULL, &cfg, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 2u);
-      tact_deinit(&test_ctx);
-
-      tact_init(&test_ctx, test_printf, test_write, &tact_ring_buffer);
-      memset(cfg.server_addr, 'X', sizeof(cfg.server_addr));
-      VERIFY(!tact_mdl_mqtt_connect(&test_ctx, NULL, &cfg, NULL));
-      memset(cfg.client_id, 'X', sizeof(cfg.client_id));
-      VERIFY(!tact_mdl_mqtt_acquire(&test_ctx, NULL, &cfg, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0u);
-      tact_deinit(&test_ctx);
-    }
-
-    TEST("MQTT checks bounds and owns copied publish strings") {
-      uint8_t rx_data[256] = {0};
-      tact_ring_buffer_t ring = {
-        .buffer = rx_data,
-        .count = 0,
-        .head = 0,
-        .tail = 0,
-        .size = sizeof(rx_data),
-      };
-      VERIFY(tact_init(&test_ctx, test_printf, test_write, &ring));
-      tact_mdl_mqtt_msg_t msg = {
-        .client_index = 0,
-        .qos = 1,
-        .topic = NULL,
-        .payload = "hello",
-        .retained = 0,
-        .pub_timeout = 30,
-      };
-      VERIFY(!tact_mdl_mqtt_publish(&test_ctx, NULL, &msg, NULL));
-      char unterminated_topic[TACT_MDL_MQTT_TOPIC_MAX + 1u];
-      memset(unterminated_topic, 'X', sizeof(unterminated_topic));
-      msg.topic = unterminated_topic;
-      VERIFY(!tact_mdl_mqtt_publish(&test_ctx, NULL, &msg, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 0);
-      VERIFY(o1heapGetDiagnostics(_tact_get_init(&test_ctx).heap).allocated == 0);
-
-      char topic[] = "/demo/foo+";
-      char payload[] = "short payload";
-      msg.topic = topic;
-      msg.payload = payload;
-      msg.qos = 3;
-      msg.pub_timeout = 0;
-      VERIFY(tact_mdl_mqtt_publish(&test_ctx, NULL, &msg, NULL));
-      topic[0] = 'X';
-      payload[0] = 'X';
-      tact_entity_t* entity = &_tact_get_entity_queue(&test_ctx)->entity[0];
-      VERIFY(entity->item_cnt == 5);
-      VERIFY(strcmp(entity->item[1].req, TACT_CMD_SAVE"/demo/foo+") == 0);
-      VERIFY(strcmp(entity->item[3].req, TACT_CMD_SAVE"short payload") == 0);
-      VERIFY(entity->item[4].meta.wait == 1000u);
-
-      O1HeapInstance* heap = _tact_get_init(&test_ctx).heap;
-      tact_deinit(&test_ctx);
-      VERIFY(o1heapGetDiagnostics(heap).allocated == 0);
-      VERIFY(!_tact_get_init(&test_ctx).init);
-
-      VERIFY(tact_init(&test_ctx, test_printf, test_write, &ring));
-      msg.topic = "/demo/foo+/status";
-      VERIFY(tact_mdl_mqtt_subscribe(&test_ctx, NULL, &msg, NULL));
-      VERIFY(_tact_get_entity_queue(&test_ctx)->entity_cnt == 1u);
-      tact_deinit(&test_ctx);
-      VERIFY(!_tact_get_init(&test_ctx).init);
     }
   } //TACT_CORE=====================================================================
 

@@ -116,14 +116,14 @@ bool tact_mdl_sms_send_text(tact_context_t* const ctx, const tact_entity_cb_t cb
   written = snprintf(text, sizeof(text), "%s%s%s", TACT_CMD_SAVE, sms->msg, TACT_CMD_CTRL_Z);
   if(written < 0 || (size_t)written >= sizeof(text)) return false;
   tact_item_t items[] = //[REQ][PREFIX][PARCE_TYPE][RPT][WAIT][STEPERROR][STEPOK][CB][FORMAT][...##VA_ARGS]
-  {
-    TACT_ITEM("AT+CMGF=1"TACT_CMD_CRLF, NULL, TACT_PARCE_SIMCOM, 1,  150, 0, 1, NULL, NULL, TACT_NO_ARG),
-    TACT_ITEM("AT+CSCS=\"GSM\""TACT_CMD_CRLF, NULL, TACT_PARCE_SIMCOM, 2, 500, 0, 1, NULL, NULL, TACT_NO_ARG),
-    TACT_ITEM(cmgs,                  "> |>",    TACT_PARCE_RAW, 1,  150, 0, 1, NULL, NULL, TACT_NO_ARG),
-    TACT_ITEM(text,           TACT_CMD_FORCE,    TACT_PARCE_RAW, 1,  150, 0, 1, NULL, NULL, TACT_NO_ARG),
-    TACT_ITEM(NULL,                "+CMGS:", TACT_PARCE_SIMCOM, 1, 4000, 0, 1, NULL, NULL, TACT_NO_ARG),
-    TACT_ITEM(NULL,                    "OK", TACT_PARCE_SIMCOM, 1,  100, 1, 1, NULL, NULL, TACT_NO_ARG),
-    TACT_ITEM(NULL,           TACT_CMD_FORCE,    TACT_PARCE_RAW, 1,    0, 0, 0, NULL, NULL, TACT_NO_ARG),
+  { 
+    TACT_ITEM("AT+CMGF=1"TACT_CMD_CRLF,            NULL,   TACT_PARCE_SIMCOM, 1,  150, 0, 1, NULL, NULL, TACT_NO_ARG),
+    TACT_ITEM("AT+CSCS=\"GSM\""TACT_CMD_CRLF,      NULL,   TACT_PARCE_SIMCOM, 2,  500, 0, 1, NULL, NULL, TACT_NO_ARG),
+    TACT_ITEM(cmgs,                              "> |>",      TACT_PARCE_RAW, 1,  150, 0, 1, NULL, NULL, TACT_NO_ARG),
+    TACT_ITEM(text,                      TACT_CMD_FORCE,      TACT_PARCE_RAW, 1,  150, 0, 1, NULL, NULL, TACT_NO_ARG),
+    TACT_ITEM(NULL,                            "+CMGS:",   TACT_PARCE_SIMCOM, 1, 4000, 0, 1, NULL, NULL, TACT_NO_ARG),
+    TACT_ITEM(NULL,                                "OK",   TACT_PARCE_SIMCOM, 1,  100, 1, 1, NULL, NULL, TACT_NO_ARG),
+    TACT_ITEM(NULL,                      TACT_CMD_FORCE,      TACT_PARCE_RAW, 1,    0, 0, 0, NULL, NULL, TACT_NO_ARG),
   };
   if(!tact_entity_enqueue(ctx, items, sizeof(items)/sizeof(items[0]), cb, 0, meta)) return false;
   return true;

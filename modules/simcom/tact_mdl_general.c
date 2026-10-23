@@ -23,6 +23,8 @@
 /*******************************************************************************
  * Local function prototypes ('static')
  ******************************************************************************/
+static void tact_mdl_baud_rates_cb(ringslice_t rs_data, bool result, void* const data);
+
 /*******************************************************************************
  * Local types definitions
  ******************************************************************************/
@@ -106,6 +108,28 @@ bool tact_mdl_functionality(tact_context_t* const ctx, const tact_entity_cb_t cb
 }
 
 /*******************************************************************************
+ * @brief  Query the list of supported temporary modem baud rates.
+ * @details TACT owns the response buffer until completion; the answer parser
+ *          reduces its numeric list to one supported board rate.
+ * @param[in] ctx Initialized TACT context.
+ * @param[in] cb Completion callback receiving the selected speed.
+ * @param[in] param Unused; pass NULL.
+ * @param[in] meta Caller value forwarded to cb.
+ * @retval true The command was queued.
+ * @retval false TACT could not queue the command.
+ ******************************************************************************/
+bool tact_mdl_baud_rates(tact_context_t* const ctx, const tact_entity_cb_t cb, const void* const param, void* const meta)
+{
+  (void)param;
+  if(!ctx || !tact_get_init(ctx).init) return false;
+  tact_item_t items[] =
+  {
+    TACT_ITEM("AT+IPR=?"TACT_CMD_CRLF, TACT_CMD_OK, TACT_PARCE_RAW, 2, 900, 0, 0, tact_mdl_baud_rates_cb, NULL, TACT_NO_ARG)
+  };
+  return tact_entity_enqueue(ctx, items, 1U, cb, sizeof(tact_mdl_baud_rate_t), meta);
+}
+
+/*
  * @brief  Extract the fastest board-supported rate from an AT+IPR test reply.
  * @details Scans only the parenthesized speed list and ignores numbers in the
  *          echoed command or unrelated response lines. The temporary command
@@ -113,7 +137,7 @@ bool tact_mdl_functionality(tact_context_t* const ctx, const tact_entity_cb_t cb
  * @param[in] rs_data Bounded TACT response slice.
  * @param[in] result true when the response parser accepted the command.
  * @param[out] data TACT-owned tact_mdl_baud_rate_t callback storage.
- ******************************************************************************/
+ */
 static void tact_mdl_baud_rates_cb(ringslice_t rs_data, bool result, void* const data)
 {
   tact_mdl_baud_rate_t *rate = (tact_mdl_baud_rate_t *)data;
@@ -141,28 +165,6 @@ static void tact_mdl_baud_rates_cb(ringslice_t rs_data, bool result, void* const
     }
   }
   if((candidate <= 921600U) && (candidate > rate->baud_rate)) rate->baud_rate = candidate;
-}
-
-/*******************************************************************************
- * @brief  Query the list of supported temporary modem baud rates.
- * @details TACT owns the response buffer until completion; the answer parser
- *          reduces its numeric list to one supported board rate.
- * @param[in] ctx Initialized TACT context.
- * @param[in] cb Completion callback receiving the selected speed.
- * @param[in] param Unused; pass NULL.
- * @param[in] meta Caller value forwarded to cb.
- * @retval true The command was queued.
- * @retval false TACT could not queue the command.
- ******************************************************************************/
-bool tact_mdl_baud_rates(tact_context_t* const ctx, const tact_entity_cb_t cb, const void* const param, void* const meta)
-{
-  (void)param;
-  if(!ctx || !tact_get_init(ctx).init) return false;
-  tact_item_t items[] =
-  {
-    TACT_ITEM("AT+IPR=?"TACT_CMD_CRLF, TACT_CMD_OK, TACT_PARCE_RAW, 2, 900, 0, 0, tact_mdl_baud_rates_cb, NULL, TACT_NO_ARG)
-  };
-  return tact_entity_enqueue(ctx, items, 1U, cb, sizeof(tact_mdl_baud_rate_t), meta);
 }
 
 /*******************************************************************************
