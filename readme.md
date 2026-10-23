@@ -350,10 +350,6 @@ if(!tact_chain_destroy(chain)) {
 
 This chain one-time configures the SIMCOM modem, context, and connection, gets real-time data, checks it, and then 10 times starts collecting and sending this data to the server with a period of 10 seconds, after preliminary authorization. In case of an error, disconnection or deinitialization occurs with an attempt to reinitialize and reconnect or a complete restart.
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 80aded3b7068a108362434bcad25b2ed790b7a4d
 ### Chain Parameters
 
 So, let's look at what can be used in a chain and what parameters can be passed there:
